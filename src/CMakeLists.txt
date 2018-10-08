@@ -1,6 +1,12 @@
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
-add_library(librankup SHARED "poker.cpp" "title.cpp" "pattern.cpp")
+set( SRC
+  "poker.cpp"
+  "title.cpp"
+  "pattern.cpp"
+  )
+
+add_library(librankup SHARED ${SRC})
 set_target_properties( librankup
     PROPERTIES
     ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/lib"
