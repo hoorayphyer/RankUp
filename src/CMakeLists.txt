@@ -6,11 +6,11 @@ set( SRC
   "pattern.cpp"
   )
 
-add_library(librankup SHARED ${SRC})
+add_library(librankup STATIC ${SRC})
 set_target_properties( librankup
     PROPERTIES
     ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/lib"
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/lib"
+    #LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/lib"
 )
 
 add_executable(rankup "main.cpp")
