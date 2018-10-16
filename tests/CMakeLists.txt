@@ -6,6 +6,7 @@ set( TEST_SRC
   )
 
 add_library(libtest_rankup SHARED ${TEST_SRC})
+target_link_libraries(libtest_rankup librankup)
 set_target_properties( libtest_rankup
     PROPERTIES
     ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/lib"

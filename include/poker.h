@@ -25,6 +25,14 @@ struct Card{
   Rank rank;
 };
 
+inline bool operator==(const Card& a, const Card& b){
+  return a.suite == b.suite && a.rank == b.rank;
+}
+
+inline bool operator!=(const Card& a, const Card& b){
+  return !(a==b);
+}
+
 std::vector<Card> generate_deck();
 
 

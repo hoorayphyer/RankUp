@@ -27,8 +27,8 @@ std::string str( Rank r ) {
 }
 
 template< typename ENUM >
-inline ENUM operator++( ENUM s ) {
-  return static_cast<ENUM>( static_cast<std::underlying_type_t<ENUM>>(s) + 1 );
+inline void operator++( ENUM& s ) {
+  s = static_cast<ENUM>( static_cast<std::underlying_type_t<ENUM>>(s) + 1 );
 }
 
 std::vector<Card> generate_deck() {

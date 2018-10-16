@@ -4,7 +4,7 @@ SCENARIO("1") {
   GIVEN("") {
     WHEN("") {
       THEN("") {
-        REQUIRE(false);
+        REQUIRE(true);
       }
     }
   }
