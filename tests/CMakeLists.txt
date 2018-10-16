@@ -5,12 +5,10 @@ set( TEST_SRC
   "test_title.cpp"
   )
 
-add_library(libtest_rankup SHARED ${TEST_SRC})
-target_link_libraries(libtest_rankup librankup)
+add_library(libtest_rankup STATIC ${TEST_SRC})
 set_target_properties( libtest_rankup
     PROPERTIES
     ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/lib"
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/lib"
 )
 
 add_executable(test_rankup ${CMAKE_SOURCE_DIR}/tests/main.cpp)
