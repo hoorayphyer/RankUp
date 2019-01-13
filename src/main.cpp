@@ -3,7 +3,7 @@
 
 int main() {
 
-  Suite a = SPADES;
+  Suit a = SPADES;
 
   std::cout << (a == SPADES) << std::endl;
 

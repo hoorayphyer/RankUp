@@ -1,7 +1,6 @@
-#include "poker.h"
-#include <type_traits>
+#include "poker.hpp"
 
-std::string str( Suite s ) {
+std::string str( Suit s ) {
   switch (s) {
   case DIAMONDS: return "Diamonds";
   case CLUBS: return "Clubs";
@@ -20,27 +19,24 @@ std::string str( Rank r ) {
   case Rank::_A  : return "A";
   case Rank::_w  : return "JOKER_LOW";
   case Rank::_W  : return "JOKER_HIGH";
-  default:
-    // using constructor std::string( size_t n, char c )
-    return std::string( 1, static_cast<char>(r) );
+  default: return std::string( 1, static_cast<char>(r) );
   }
 }
 
-template< typename ENUM >
-inline void operator++( ENUM& s ) {
-  s = static_cast<ENUM>( static_cast<std::underlying_type_t<ENUM>>(s) + 1 );
-}
-
-std::vector<Card> generate_deck() {
-  std::vector<Card> deck;
-  for ( Suite s = DIAMONDS; s < JOKER; ++s ) {
-    for ( Rank r = Rank::_2; r < Rank::_w; ++r ) {
-      // NOTE Card here is necessary because template deduction cannot tell the type of a brack-initializer-list
-      deck.emplace_back(Card{s,r});
-    }
-  }
-  deck.emplace_back(Card{JOKER, Rank::_w});
-  deck.emplace_back(Card{JOKER, Rank::_W});
-  deck.shrink_to_fit();
-  return deck;
-}
+// std::vector<Card> generate_deck() {
+//   std::vector<Card> deck;
+//   auto gen_suit =
+//     [&deck]( Suit s ) {
+//       for ( Rank r = Rank::_2; r < Rank::_w; ++r ) {
+//         deck.emplace_back(s,r);
+//       }
+//     };
+//   gen_suit(DIAMONDS);
+//   gen_suit(CLUBS);
+//   gen_suit(HEARTS);
+//   gen_suit(SPADES);
+//   deck.emplace_back(Card{JOKER, Rank::_w});
+//   deck.emplace_back(Card{JOKER, Rank::_W});
+//   deck.shrink_to_fit();
+//   return deck;
+// }

@@ -1,9 +1,9 @@
-#ifndef _TITLE_H_
-#define _TITLE_H_
+#ifndef _TITLE_HPP_
+#define _TITLE_HPP_
 
-#include "poker.h"
+#include "poker.hpp"
 
-// a title is a modification to suite that takes into account the lordship.
+// a title is a modification to suit that takes into account the lordship.
 enum Title {
             FOLK_DIAMONDS = DIAMONDS,
             FOLK_CLUBS = CLUBS,
@@ -15,9 +15,9 @@ enum Title {
 std::string str( Title title );
 
 namespace titles {
-  void set_lordship( const Card& card );
+  void set_lordship( Suit s, Rank r );
   const Card& query_lordship();
   Title title( const Card& card );
 }
 
-#endif // ----- end of _TITLE_H_
+#endif
