@@ -20,25 +20,17 @@ OStream& operator<< (OStream& out, Rank r) {
 }
 
 struct Card {
-private:
-  Suit _suit;
-  Rank _rank;
-public:
-  constexpr Card( Suit s, Rank r ) noexcept : _suit(s), _rank(r) {}
-
-  constexpr Suit& suit() noexcept { return _suit;}
-  constexpr const Suit& suit() const noexcept { return _suit; }
-  constexpr Rank& rank() noexcept { return _rank;}
-  constexpr const Rank& rank() const { return _rank; }
-
-  constexpr bool operator== ( const Card& other ) noexcept {
-    return _suit == other.suit() && _rank == other.rank();
-  }
-
-  constexpr bool operator!=( const Card& b ) noexcept {
-    return !( a == b );
-  }
+  Suit suit;
+  Rank rank;
 };
+
+constexpr bool operator== ( const Card& a, const Card& b ) noexcept {
+  return a.suit == b.suit && a.rank == b.rank;
+}
+
+constexpr bool operator!=( const Card& a, const Card& b ) noexcept {
+  return !( a == b );
+}
 
 
 #endif
