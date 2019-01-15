@@ -1,5 +1,5 @@
 #include <catch2/catch.hpp>
-#include "poker.h"
+#include "poker.hpp"
 #include <algorithm>
 
 TEST_CASE("Check generating a deck") {

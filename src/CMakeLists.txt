@@ -2,8 +2,10 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 
 set( SRC
   "poker.cpp"
-  "title.cpp"
-  "pattern.cpp"
+  "game.cpp"
+  "deck.cpp"
+  "player.cpp"
+  "cardstream.cpp"
   )
 
 add_library(librankup STATIC ${SRC})
