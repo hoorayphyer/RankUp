@@ -1,3 +1,8 @@
-build/
-bin/
-lib/
+*
+!.clang-format
+
+!common/
+!common/*
+
+!rules/
+!rules/*
