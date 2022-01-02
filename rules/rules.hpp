@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -39,7 +40,9 @@ class Pattern {
 
 class Rules {
  public:
-  Rules(Card lord_card) : m_lord_card(std::move(lord_card)) {}
+  Rules(Card lord_card);
+
+  ~Rules();
 
   /**
      @throw std::runtime_error if cards is empty.
@@ -53,35 +56,15 @@ class Rules {
      @return true if cards > pattern, false if cards <= pattern. In other words,
      return true if an update took place
    */
-  bool update_pattern_if_greater_cards(Pattern& pattern,
-                                       const std::vector<Card>& cards) const;
+  bool update_pattern_if_cards_are_greater(
+      Pattern& pattern, const std::vector<Card>& cards) const;
+
+  struct RulesImpl;
 
  private:
   Card m_lord_card;
 
-  class Value {
-   public:
-    Value(char value, bool is_minor_lord = false,
-          Suit minor_lord_suit = Suit::D);
-
-    char full() const { return m_data; }
-
-    char major() const;
-
-    char minor() const;
-
-    bool is_minor_lord() const;
-
-    bool operator<(const Value& other) const {
-      return full() < other.full();
-    }
-
-   private:
-    char m_data;
-  };
-
-  Value evaluate(const Card& card) const;
-  bool is_lord(const Card& card) const;
+  std::unique_ptr<RulesImpl> m_impl;
 };
 
 }  // namespace rankup
