@@ -46,6 +46,10 @@ struct Rules::RulesImpl {
 
  protected:
   Card m_lord;
+
+  static std::vector<Value> adjust_for_minor_lords(
+      std::vector<Value>& sorted_values, const char minor_lord_val,
+      bool allow_adjacent_pair_to_the_left_of_minor_lords);
 };
 
 /**
