@@ -6,6 +6,8 @@
 
 !rules/
 !rules/*
+!rules/tests
+!rules/tests/*
 
 !catchtf/
 !catchtf/*
