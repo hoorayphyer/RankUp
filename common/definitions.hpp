@@ -1,11 +1,15 @@
 #pragma once
 
+#include <cstdint>
+
 namespace rankup {
 
-enum class Suit : char { D = 0, C, H, S, J };
+using std::int8_t;
+
+enum class Suit : int8_t { D = 0, C, H, S, J };
 
 // _w is Joker low, and _W is Joker high
-enum class Rank : char {
+enum class Rank : int8_t {
   _2 = 0,
   _3,
   _4,

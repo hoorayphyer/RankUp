@@ -28,12 +28,12 @@ class Pattern {
   Pattern() = default;
 
   struct Component {
-    char m_axle;   // use axle number to represent component
-    char m_start;  // the value of the starting card
+    int8_t m_axle;   // use axle number to represent component
+    int8_t m_start;  // the value of the starting card
   };
 
   bool m_mixed = false;
-  char m_count = 0;  // number of cards of this pattern
+  int8_t m_count = 0;  // number of cards of this pattern
   Suit m_suit;
   std::vector<Component> m_comps;
 };

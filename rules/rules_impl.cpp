@@ -5,14 +5,14 @@
 namespace rankup {
 
 std::vector<Value> Rules::RulesImpl::adjust_for_minor_lords(
-    std::vector<Value>& sorted_values, const char minor_lord_val,
+    std::vector<Value>& sorted_values, const int8_t minor_lord_val,
     bool allow_adjacent_pair_to_the_left_of_minor_lords) {
   std::vector<Value> res;
 
   int idx_minors_begin = -1;
   int idx_minors_end = -1;
   // count is indexed by suit
-  std::array<char, 4> count = {0, 0, 0, 0};
+  std::array<int8_t, 4> count = {0, 0, 0, 0};
   for (auto i = 0u; i < sorted_values.size(); ++i) {
     if (sorted_values[i].is_minor_lord()) {
       if (idx_minors_begin == -1) idx_minors_begin = i;
@@ -23,7 +23,7 @@ std::vector<Value> Rules::RulesImpl::adjust_for_minor_lords(
   }
 
   auto itr_first_pair =
-      std::find(count.begin(), count.end(), static_cast<char>(2));
+      std::find(count.begin(), count.end(), static_cast<int8_t>(2));
   // no action when there is no pair of minor lords
   if (itr_first_pair == count.end()) return res;
 
@@ -44,7 +44,7 @@ std::vector<Value> Rules::RulesImpl::adjust_for_minor_lords(
        sorted_values[idx_minors_end + 1].major() == minor_lord_val + 1);
 
   if (has_pair_of_major_lords) {
-    auto ritr = std::find(count.rbegin(), count.rend(), static_cast<char>(2));
+    auto ritr = std::find(count.rbegin(), count.rend(), static_cast<int8_t>(2));
     assert(ritr != count.rend());
     // above assertion guarantees the following is well behaved.
     int suit_last_pair = 3 - std::distance(count.rbegin(), ritr);
@@ -67,7 +67,7 @@ std::vector<Value> Rules::RulesImpl::adjust_for_minor_lords(
       sorted_values.erase(erase_begin1, erase_end1);
       sorted_values.erase(erase_begin2, erase_end2);
       auto itr = extracted.begin();
-      for (char suit = 0; suit < 4; ++suit) {
+      for (int8_t suit = 0; suit < 4; ++suit) {
         if (suit == suit_last_pair or count[suit] == 0) continue;
         if (count[suit] == 1) {
           sorted_values.push_back(*itr++);
@@ -102,9 +102,9 @@ std::vector<Value> Rules::RulesImpl::adjust_for_minor_lords(
 }
 
 Value RulesLordful::evaluate(const Card& card) const {
-  static_assert(static_cast<char>(Rank::_2) == 0);
-  char rank = static_cast<char>(card.rank());
-  char lord_rank = static_cast<char>(m_lord.rank());
+  static_assert(static_cast<int8_t>(Rank::_2) == 0);
+  int8_t rank = static_cast<int8_t>(card.rank());
+  int8_t lord_rank = static_cast<int8_t>(m_lord.rank());
 
   if (card.suit() != Suit::J) {
     if (rank != lord_rank)
@@ -130,9 +130,9 @@ std::vector<Value> RulesLordful::adjust_for_minor_lords(
 }
 
 Value RulesLordlessOverthrown::evaluate(const Card& card) const {
-  static_assert(static_cast<char>(Rank::_2) == 0);
-  char rank = static_cast<char>(card.rank());
-  char lord_rank = static_cast<char>(m_lord.rank());
+  static_assert(static_cast<int8_t>(Rank::_2) == 0);
+  int8_t rank = static_cast<int8_t>(card.rank());
+  int8_t lord_rank = static_cast<int8_t>(m_lord.rank());
 
   if (card.suit() != Suit::J) {
     if (rank != lord_rank)
@@ -155,8 +155,8 @@ std::vector<Value> RulesLordlessOverthrown::adjust_for_minor_lords(
 }
 
 Value RulesLordlessRegular::evaluate(const Card& card) const {
-  static_assert(static_cast<char>(Rank::_2) == 0);
-  char rank = static_cast<char>(card.rank());
+  static_assert(static_cast<int8_t>(Rank::_2) == 0);
+  int8_t rank = static_cast<int8_t>(card.rank());
 
   return Value(rank);  // also works for wW
 }
