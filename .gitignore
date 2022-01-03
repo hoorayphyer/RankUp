@@ -6,3 +6,6 @@
 
 !rules/
 !rules/*
+
+!catchtf/
+!catchtf/*
