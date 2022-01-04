@@ -108,7 +108,7 @@ Value RulesLordful::evaluate(const Card& card) const {
 
   if (card.suit() != Suit::J) {
     if (rank != lord_rank)
-      return Value(rank > lord_rank ? rank : rank - 1);
+      return Value(rank < lord_rank ? rank : rank - 1);
     else if (card.suit() != m_lord.suit()) {
       return Value(12, true, card.suit());
     } else
@@ -136,7 +136,7 @@ Value RulesLordlessOverthrown::evaluate(const Card& card) const {
 
   if (card.suit() != Suit::J) {
     if (rank != lord_rank)
-      return Value(rank > lord_rank ? rank : rank - 1);
+      return Value(rank < lord_rank ? rank : rank - 1);
     else
       return Value(12, true, card.suit());
   } else {

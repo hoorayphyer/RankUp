@@ -11,7 +11,7 @@ class Value {
     m_data = (value << 3);
     if (is_minor_lord) {
       assert(minor_lord_suit != Suit::J);
-      m_data += (static_cast<int8_t>(minor_lord_suit) << 2) + 1;
+      m_data += (static_cast<int8_t>(minor_lord_suit) << 1) + 1;
     }
   }
 
@@ -71,6 +71,7 @@ class RulesLordful : public Rules::RulesImpl {
  *lord.rank != wW, lord.suit == J
  */
 class RulesLordlessOverthrown : public Rules::RulesImpl {
+ public:
   using Rules::RulesImpl::RulesImpl;
   Value evaluate(const Card& card) const override;
   bool is_lord(const Card& card) const override;
@@ -85,6 +86,7 @@ class RulesLordlessOverthrown : public Rules::RulesImpl {
  *lord.rank == wW, lord.suit == J
  */
 class RulesLordlessRegular : public Rules::RulesImpl {
+ public:
   using Rules::RulesImpl::RulesImpl;
   Value evaluate(const Card& card) const override;
   bool is_lord(const Card& card) const override;
