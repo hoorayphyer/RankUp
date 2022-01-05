@@ -25,9 +25,20 @@ class Value {
 
   bool operator<(const Value& other) const { return full() < other.full(); }
 
+  bool operator==(const Value& other) const { return full() == other.full(); }
+
  private:
   int8_t m_data;
 };
+
+template <typename OStream>
+OStream& operator<<(OStream& o, const Value& val) {
+  o << static_cast<int>(val.major());
+  if (val.is_minor_lord()) {
+    o << "." << static_cast<int>(val.minor());
+  }
+  return o;
+}
 
 struct Rules::RulesImpl {
  public:

@@ -50,22 +50,29 @@ std::vector<Value> Rules::RulesImpl::adjust_for_minor_lords(
     int suit_last_pair = 3 - std::distance(count.rbegin(), ritr);
     // find the idx of the first card in the pair
     int idx_begin_last_pair = idx_minors_begin;
-    for (int i = 0; i < suit_last_pair - 1; ++i)
-      idx_begin_last_pair += count[i];
+    for (int i = 0; i < suit_last_pair; ++i) idx_begin_last_pair += count[i];
     if (has_pair_of_one_less) {
       // In this most complicated case, all minor lords except the last pair
       // must come out of the array. Singles can be reinserted back to the end
       // of the array. Extra pairs need to be sotred separately.
 
-      // extract all then erase all to avoid index invalidation
-      auto erase_begin1 = sorted_values.begin() + idx_minors_begin;
-      auto erase_end1 = sorted_values.begin() + idx_begin_last_pair;
-      auto erase_begin2 = sorted_values.begin() + idx_begin_last_pair + 2;
-      auto erase_end2 = sorted_values.begin() + idx_minors_end;
-      std::vector<Value> extracted(erase_begin1, erase_end1);
-      extracted.insert(extracted.end(), erase_begin2, erase_end2);
-      sorted_values.erase(erase_begin1, erase_end1);
-      sorted_values.erase(erase_begin2, erase_end2);
+      std::vector<Value> extracted;
+      auto extract_and_erase_range = [&extracted, &sorted_values](int idx_b,
+                                                                  int idx_e) {
+        auto itr_b = sorted_values.begin() + idx_b;
+        auto itr_e = sorted_values.begin() + idx_e;
+        extracted.insert(extracted.end(), itr_b, itr_e);
+        sorted_values.erase(itr_b, itr_e);
+
+        return itr_e - itr_b;
+      };
+
+      auto num_erased =
+          extract_and_erase_range(idx_minors_begin, idx_begin_last_pair);
+      // note to shift index by num_erased
+      extract_and_erase_range(idx_begin_last_pair + 2 - num_erased,
+                              idx_minors_end - num_erased);
+
       auto itr = extracted.begin();
       for (int8_t suit = 0; suit < 4; ++suit) {
         if (suit == suit_last_pair or count[suit] == 0) continue;
@@ -90,11 +97,10 @@ std::vector<Value> Rules::RulesImpl::adjust_for_minor_lords(
 
     // find the idx of the first card in the pair
     int idx_begin_first_pair = idx_minors_begin;
-    for (int i = 0; i < suit_first_pair - 1; ++i)
-      idx_begin_first_pair += count[i];
-    std::swap(sorted_values[idx_minors_begin + 1],
+    for (int i = 0; i < suit_first_pair; ++i) idx_begin_first_pair += count[i];
+    std::swap(sorted_values[idx_minors_begin],
               sorted_values[idx_begin_first_pair]);
-    std::swap(sorted_values[idx_minors_begin + 2],
+    std::swap(sorted_values[idx_minors_begin + 1],
               sorted_values[idx_begin_first_pair + 1]);
   }
 
