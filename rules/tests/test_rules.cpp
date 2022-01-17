@@ -405,11 +405,11 @@ SCENARIO("Rules::parse when Lordful", "[rules]") {
   const Card lord(suit_lord, Rank::_8);
   Rules rules(lord);
 
-  SECTION("Test mixed") {
+  SECTION("Test multiple suits") {
     const std::vector<Card> cards = {
         {Suit::D, Rank::_4}, {Suit::D, Rank::_4}, {Suit::S, Rank::_5}};
     auto pat = rules.parse(cards);
-    REQUIRE(pat.mixed());
+    REQUIRE_FALSE(pat.single_suit());
   }
 
   const auto rules_impl = RulesLordful(lord);
@@ -425,7 +425,7 @@ SCENARIO("Rules::parse when Lordful", "[rules]") {
     const std::vector<Card> cards = gen_for_suit(suit, ranks);
     auto pat = rules.parse(cards);
 
-    REQUIRE_FALSE(pat.mixed());
+    REQUIRE(pat.single_suit());
     REQUIRE(pat.minor_lord_comps().empty());
     REQUIRE(pat.suit() == suit);
     REQUIRE(pat.count() == ranks.size());
@@ -445,7 +445,7 @@ SCENARIO("Rules::parse when Lordful", "[rules]") {
         {Suit::H, Rank::_8}, {suit, Rank::_8},    {suit, Rank::_8}};
     auto pat = rules.parse(cards);
 
-    REQUIRE_FALSE(pat.mixed());
+    REQUIRE(pat.single_suit());
     THEN("pattern uses Suit::J to denote lord cards") {
       REQUIRE(pat.suit() == Suit::J);
     }

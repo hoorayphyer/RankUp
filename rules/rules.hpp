@@ -38,7 +38,7 @@ class Pattern {
     int8_t m_start;  // the value of the starting card
   };
 
-  const bool& mixed() const { return m_mixed; }
+  const bool& single_suit() const { return m_single_suit; }
   const int8_t& count() const { return m_count; }
   const Suit& suit() const { return m_suit; }
   const std::vector<Component>& comps() const { return m_comps; }
@@ -51,7 +51,7 @@ class Pattern {
  private:
   Pattern() = default;
 
-  bool m_mixed = false;
+  bool m_single_suit = true;
   int8_t m_count = 0;  // number of cards of this pattern
   Suit m_suit;
   std::vector<Component> m_comps;

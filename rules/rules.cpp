@@ -37,7 +37,7 @@ namespace parse_impl {
  */
 std::tuple<bool, Suit, std::vector<Value>> construct_sorted_values(
     const std::vector<Card>& cards, const Rules::RulesImpl* impl) {
-  bool mixed = false;
+  bool single_suit = true;
   Suit suit;
   std::vector<Value> values;
   values.reserve(cards.size());
@@ -51,17 +51,17 @@ std::tuple<bool, Suit, std::vector<Value>> construct_sorted_values(
   values.push_back(impl->evaluate(cards[0]));
   for (auto i = 1u; i < cards.size(); ++i) {
     if (lorded_suit(cards[i]) != suit) {
-      mixed = true;
+      single_suit = false;
       break;
     }
     values.push_back(impl->evaluate(cards[i]));
   }
 
-  if (!mixed) {
+  if (single_suit) {
     std::sort(values.begin(), values.end());
   }
 
-  return {mixed, suit, values};
+  return {single_suit, suit, values};
 }
 
 /**
@@ -135,9 +135,9 @@ Pattern Rules::parse(const std::vector<Card>& cards) const {
   Pattern pat;
   std::vector<Value> values;
 
-  std::tie(pat.m_mixed, pat.m_suit, values) =
+  std::tie(pat.m_single_suit, pat.m_suit, values) =
       parse_impl::construct_sorted_values(cards, m_impl.get());
-  if (pat.m_mixed) return pat;
+  if (!pat.m_single_suit) return pat;
   pat.m_count = cards.size();
 
   auto extra_minor_lord_pairs = m_impl->adjust_for_minor_lords(values);
