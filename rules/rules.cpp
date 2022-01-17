@@ -27,32 +27,52 @@ Rules::Rules(Card lord_card) : m_lord_card(std::move(lord_card)) {
 
 Rules::~Rules() = default;
 
-Pattern Rules::parse(const std::vector<Card> &cards) const {
+namespace parse_impl {
+/**
+   @param cards, guaranteed to have size > 0
+ */
+std::tuple<bool, int8_t, Suit, std::vector<Value>> construct_sorted_values(
+    const std::vector<Card>& cards, const Rules::RulesImpl* impl) {
+  bool mixed = false;
+  int8_t count = 0;
+  Suit suit;
+  std::vector<Value> values;
+  values.reserve(cards.size());
+
+  auto lorded_suit = [impl](const Card& card) {
+    // Here we use Suit::J to represent all lords
+    return impl->is_lord(card) ? Suit::J : card.suit();
+  };
+
+  suit = lorded_suit(cards[0]);
+  values.push_back(impl->evaluate(cards[0]));
+  for (auto i = 1u; i < cards.size(); ++i) {
+    if (lorded_suit(cards[i]) != suit) {
+      mixed = true;
+      break;
+    }
+    values.push_back(impl->evaluate(cards[i]));
+  }
+
+  if (!mixed) {
+    count = cards.size();
+    std::sort(values.begin(), values.end());
+  }
+
+  return {mixed, count, suit, values};
+}
+}  // namespace parse_impl
+
+Pattern Rules::parse(const std::vector<Card>& cards) const {
   if (cards.size() == 0) {
     throw std::runtime_error("Parsing empty cards is forbidden!");
   }
   Pattern pat;
   std::vector<Value> values;
-  values.reserve(cards.size());
 
-  auto lorded_suit = [this](const Card &card) {
-    // Here we use Suit::J to represent all lords
-    return m_impl->is_lord(card) ? Suit::J : card.suit();
-  };
-
-  pat.m_suit = lorded_suit(cards[0]);
-  values.push_back(m_impl->evaluate(cards[0]));
-  for (auto i = 1u; i < cards.size(); ++i) {
-    if (lorded_suit(cards[i]) != pat.m_suit) {
-      pat.m_mixed = true;
-      return pat;
-    }
-    values.push_back(m_impl->evaluate(cards[i]));
-  }
-  pat.m_mixed = false;
-  pat.m_count = cards.size();
-
-  std::sort(values.begin(), values.end());
+  std::tie(pat.m_mixed, pat.m_count, pat.m_suit, values) =
+      parse_impl::construct_sorted_values(cards, m_impl.get());
+  if (pat.m_mixed) return pat;
 
   auto extra_minor_lord_pairs = m_impl->adjust_for_minor_lords(values);
 }
