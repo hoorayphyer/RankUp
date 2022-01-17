@@ -1,5 +1,6 @@
 #include <catch2/catch.hpp>
 
+#include "rules.hpp"
 #include "rules_impl.hpp"
 
 using namespace rankup;
@@ -374,5 +375,86 @@ SCENARIO("Regular Lordless Rules", "[rules]") {
     auto extra = rules.adjust_for_minor_lords(values);
     REQUIRE(values == values_orig);
     REQUIRE(extra == std::vector<Value>{});
+  }
+}
+
+std::vector<Card> gen_for_suit(Suit suit, const std::vector<Rank>& ranks) {
+  std::vector<Card> res;
+  for (auto rank : ranks) {
+    res.emplace_back(suit, rank);
+  }
+  return res;
+}
+
+template <typename F>
+std::vector<Pattern::Component> gen_comps(
+    const F& f_eval,
+    const std::vector<std::pair<int8_t, Card>>& vec_of_axle_card_pairs) {
+  std::vector<Pattern::Component> res;
+  for (auto pair : vec_of_axle_card_pairs) {
+    auto val = f_eval(pair.second);
+    // store major() in Component
+    res.emplace_back(pair.first, val.major());
+  }
+  return res;
+}
+
+// Lordful should be enough to cover all cases
+SCENARIO("Rules::parse when Lordful", "[rules]") {
+  const Suit suit_lord = Suit::S;
+  const Card lord(suit_lord, Rank::_8);
+  Rules rules(lord);
+
+  SECTION("Test mixed") {
+    const std::vector<Card> cards = {
+        {Suit::D, Rank::_4}, {Suit::D, Rank::_4}, {Suit::S, Rank::_5}};
+    auto pat = rules.parse(cards);
+    REQUIRE(pat.mixed());
+  }
+
+  const auto rules_impl = RulesLordful(lord);
+  auto f_eval = [&rules_impl](const Card& card) {
+    return rules_impl.evaluate(card);
+  };
+
+  SECTION("Test folk suits") {
+    const Suit suit = Suit::D;
+    const std::vector<Rank> ranks = {Rank::_3, Rank::_4, Rank::_4, Rank::_5,
+                                     Rank::_6, Rank::_6, Rank::_7, Rank::_7,
+                                     Rank::_9, Rank::_9, Rank::_A};
+    const std::vector<Card> cards = gen_for_suit(suit, ranks);
+    auto pat = rules.parse(cards);
+
+    REQUIRE_FALSE(pat.mixed());
+    REQUIRE(pat.minor_lord_comps().empty());
+    REQUIRE(pat.suit() == suit);
+    REQUIRE(pat.count() == ranks.size());
+    const auto comps_exp = gen_comps(f_eval, {{0, {suit, Rank::_3}},
+                                              {1, {suit, Rank::_4}},
+                                              {0, {suit, Rank::_5}},
+                                              {3, {suit, Rank::_6}},
+                                              {0, {suit, Rank::_A}}});
+    REQUIRE(pat.comps() == comps_exp);
+  }
+
+  SECTION("Test minor lord complication") {
+    const Suit suit = suit_lord;
+    const std::vector<Card> cards = {
+        {suit, Rank::_A},    {suit, Rank::_A},    {Suit::C, Rank::_8},
+        {Suit::D, Rank::_8}, {Suit::D, Rank::_8}, {Suit::H, Rank::_8},
+        {Suit::H, Rank::_8}, {suit, Rank::_8},    {suit, Rank::_8}};
+    auto pat = rules.parse(cards);
+
+    REQUIRE_FALSE(pat.mixed());
+    THEN("pattern uses Suit::J to denote lord cards") {
+      REQUIRE(pat.suit() == Suit::J);
+    }
+    REQUIRE(pat.count() == cards.size());
+    const auto comps_exp =
+        gen_comps(f_eval, {{3, {suit, Rank::_A}}, {0, {Suit::C, Rank::_8}}});
+    REQUIRE(pat.comps() == comps_exp);
+    const auto minor_lord_comps_exp =
+        gen_comps(f_eval, {{1, {Suit::D, Rank::_8}}});
+    REQUIRE(pat.minor_lord_comps() == minor_lord_comps_exp);
   }
 }

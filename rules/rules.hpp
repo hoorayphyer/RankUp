@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -22,25 +23,51 @@ class Pattern {
   std::string check_valid(const std::vector<Card>& cards,
                           const std::vector<bool>& selected) const;
 
+  struct Component {
+    Component(int8_t axle, int8_t start) : m_axle(axle), m_start(start) {}
+
+    const int8_t& axle() const { return m_axle; }
+    const int8_t& start() const { return m_start; }
+
+    bool operator==(const Component& other) const {
+      return axle() == other.axle() and start() == other.start();
+    }
+
+   private:
+    int8_t m_axle;   // use axle number to represent component
+    int8_t m_start;  // the value of the starting card
+  };
+
+  const bool& mixed() const { return m_mixed; }
+  const int8_t& count() const { return m_count; }
+  const Suit& suit() const { return m_suit; }
+  const std::vector<Component>& comps() const { return m_comps; }
+  const std::vector<Component>& minor_lord_comps() const {
+    return m_minor_lord_comps;
+  }
+
   friend class Rules;
 
  private:
   Pattern() = default;
 
-  struct Component {
-    int8_t m_axle;   // use axle number to represent component
-    int8_t m_start;  // the value of the starting card
-  };
-
   bool m_mixed = false;
   int8_t m_count = 0;  // number of cards of this pattern
   Suit m_suit;
   std::vector<Component> m_comps;
+  std::vector<Component> m_minor_lord_comps;  // minor lord components that must
+                                              // be separately stored
 };
+
+template <typename OStream>
+OStream& operator<<(OStream& o, const Pattern::Component& comp) {
+  o << static_cast<int>(comp.axle()) << "-" << static_cast<int>(comp.start());
+  return o;
+}
 
 class Rules {
  public:
-  Rules(Card lord_card);
+  explicit Rules(Card lord_card);
 
   ~Rules();
 

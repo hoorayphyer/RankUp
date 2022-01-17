@@ -1,4 +1,8 @@
+#include "rules/rules.hpp"
+
 #include <algorithm>
+#include <cstdint>
+#include <limits>
 #include <stdexcept>
 
 #include "rules_impl.hpp"
@@ -31,10 +35,9 @@ namespace parse_impl {
 /**
    @param cards, guaranteed to have size > 0
  */
-std::tuple<bool, int8_t, Suit, std::vector<Value>> construct_sorted_values(
+std::tuple<bool, Suit, std::vector<Value>> construct_sorted_values(
     const std::vector<Card>& cards, const Rules::RulesImpl* impl) {
   bool mixed = false;
-  int8_t count = 0;
   Suit suit;
   std::vector<Value> values;
   values.reserve(cards.size());
@@ -55,12 +58,74 @@ std::tuple<bool, int8_t, Suit, std::vector<Value>> construct_sorted_values(
   }
 
   if (!mixed) {
-    count = cards.size();
     std::sort(values.begin(), values.end());
   }
 
-  return {mixed, count, suit, values};
+  return {mixed, suit, values};
 }
+
+/**
+   @param values, values are sorted, free of complications due to minor lords.
+ */
+std::vector<Pattern::Component> parse_for_components(
+    const std::vector<Value>& values) {
+  std::vector<Pattern::Component> res;
+  if (values.empty()) return res;
+
+  // define two modes for parsing.
+  constexpr bool FOR_EQUAL = false;
+  constexpr bool FOR_ADJ = true;
+
+  // NOTE in storing the m_start of a Component, we store Value::major() as
+  // opposed to full().
+
+  Value val_last = values[0];
+  int8_t axle = 0;
+  bool mode = FOR_EQUAL;
+
+  auto parse_in_equal_mode = [&val_last, &axle, &mode, &res](const Value& val) {
+    // in comparing equal for a pair, we must compare full().
+    if (val.full() == val_last.full()) {
+      ++axle;
+      mode = FOR_ADJ;
+    } else {
+      // fail to pair.
+      if (axle != 0) {
+        res.emplace_back(axle, val_last.major() - axle);
+      }
+      res.emplace_back(0, val_last.major());
+      val_last = val;
+      axle = 0;  // reset
+    }
+  };
+
+  auto parse_in_adj_mode = [&val_last, &axle, &mode, &res](const Value& val) {
+    //  in comparing adj, we must compare major().
+    if (val.major() == val_last.major() + 1) {
+      val_last = val;
+      mode = FOR_EQUAL;
+    } else {
+      res.emplace_back(axle, val_last.major() - axle + 1);
+      val_last = val;
+      axle = 0;
+      mode = FOR_EQUAL;
+    }
+  };
+
+  // conceptually append a sentinel to `values` to make sure the last element in
+  // `values` is stored.
+  const Value sentinel(std::numeric_limits<int8_t>::max());
+  for (auto i = 1u; i <= values.size(); ++i) {
+    const auto& val = i != values.size() ? values[i] : sentinel;
+    if (mode == FOR_EQUAL)
+      parse_in_equal_mode(val);
+    else
+      parse_in_adj_mode(val);
+  }
+
+  return res;
+}
+
 }  // namespace parse_impl
 
 Pattern Rules::parse(const std::vector<Card>& cards) const {
@@ -70,10 +135,17 @@ Pattern Rules::parse(const std::vector<Card>& cards) const {
   Pattern pat;
   std::vector<Value> values;
 
-  std::tie(pat.m_mixed, pat.m_count, pat.m_suit, values) =
+  std::tie(pat.m_mixed, pat.m_suit, values) =
       parse_impl::construct_sorted_values(cards, m_impl.get());
   if (pat.m_mixed) return pat;
+  pat.m_count = cards.size();
 
   auto extra_minor_lord_pairs = m_impl->adjust_for_minor_lords(values);
+
+  pat.m_comps = parse_impl::parse_for_components(values);
+  pat.m_minor_lord_comps =
+      parse_impl::parse_for_components(extra_minor_lord_pairs);
+
+  return pat;
 }
 }  // namespace rankup

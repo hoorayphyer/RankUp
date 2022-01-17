@@ -42,7 +42,7 @@ OStream& operator<<(OStream& o, const Value& val) {
 
 struct Rules::RulesImpl {
  public:
-  RulesImpl(const Card& lord) : m_lord(lord) {}
+  explicit RulesImpl(const Card& lord) : m_lord(lord) {}
 
   virtual Value evaluate(const Card& card) const = 0;
   virtual bool is_lord(const Card& card) const = 0;
