@@ -38,6 +38,26 @@ class Pattern {
     int8_t m_start;  // the value of the starting card
   };
 
+  enum class CompareCode : int8_t { OK = 0, DIFFERENT_COUNT, NO_SINGLE_SUIT };
+
+  /**
+     checks if `other` can be compared with this pattern. To be comparable, both
+     patterns must have the same count(), and at least one must have a single
+     suit.
+   */
+  CompareCode is_comparable(const Pattern& other) const;
+
+  /**
+     checks whether this pattern is strictly smaller than other.
+
+     @throw std::runtime_error if `other` is not comparable to this pattern. See
+     `is_comparable` for details
+   */
+  bool operator<(const Pattern& other) const;
+  bool operator>=(const Pattern& other) const { return !(*this < other); }
+  bool operator>(const Pattern& other) const { return other < *this; }
+  bool operator<=(const Pattern& other) const { return other >= *this; }
+
   const bool& single_suit() const { return m_single_suit; }
   const int8_t& count() const { return m_count; }
   const Suit& suit() const { return m_suit; }
@@ -75,16 +95,6 @@ class Rules {
      @throw std::runtime_error if cards is empty.
    */
   Pattern parse(const std::vector<Card>& cards) const;
-
-  /**
-     check if the set of cards is strictly greater than the pattern. If so,
-     update the pattern to that of the cards.
-
-     @return true if cards > pattern, false if cards <= pattern. In other words,
-     return true if an update took place
-   */
-  bool update_pattern_if_cards_are_greater(
-      Pattern& pattern, const std::vector<Card>& cards) const;
 
   struct RulesImpl;
 

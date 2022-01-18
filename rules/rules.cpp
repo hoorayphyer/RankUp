@@ -8,6 +8,27 @@
 #include "rules_impl.hpp"
 
 namespace rankup {
+Pattern::CompareCode Pattern::is_comparable(const Pattern& other) const {
+  if (count() != other.count()) return CompareCode::DIFFERENT_COUNT;
+  return (single_suit() or other.single_suit()) ? CompareCode::OK
+                                                : CompareCode::NO_SINGLE_SUIT;
+}
+
+bool Pattern::operator<(const Pattern& other) const {
+  switch (is_comparable(other)) {
+    case CompareCode::DIFFERENT_COUNT:
+      throw std::runtime_error("not comparable because counts are different!");
+    case CompareCode::NO_SINGLE_SUIT:
+      throw std::runtime_error(
+          "not comparable because neither has a single suit!");
+    default:;
+  };
+
+  // TODO
+}
+}  // namespace rankup
+
+namespace rankup {
 
 Rules::Rules(Card lord_card) : m_lord_card(std::move(lord_card)) {
   // Three cases of lordedness
