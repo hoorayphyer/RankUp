@@ -8,13 +8,67 @@
 #include "rules_impl.hpp"
 
 namespace rankup {
+int Format::get_index(const int8_t& axle) const noexcept {
+  auto it = std::find(m_axle.begin(), m_axle.end(), axle);
+  return it != m_axle.end() ? std::distance(m_axle.begin(), it) : INVALID_INDEX;
+}
+
+int8_t& Format::operator[](const int8_t& axle) {
+  auto idx = get_index(axle);
+  if (idx != INVALID_INDEX) {
+    return m_count[idx];
+  } else {
+    m_axle.push_back(axle);
+    return m_count.emplace_back(0);
+  }
+}
+
+const int8_t& Format::at(const int8_t& axle) const {
+  auto idx = get_index(axle);
+  if (idx == INVALID_INDEX) {
+    std::string msg = "Axle " + std::to_string(static_cast<int>(axle)) +
+                      " not found in the format!";
+    throw std::out_of_range(msg);
+  }
+  return m_count[idx];
+}
+
+int8_t& Format::at(const int8_t& axle) {
+  return const_cast<int8_t&>(static_cast<const Format&>(*this).at(axle));
+}
+
+int8_t Format::at_or_0(const int8_t& axle) const noexcept {
+  auto idx = get_index(axle);
+  return idx != INVALID_INDEX ? m_count[idx] : 0;
+}
+
+int8_t Format::total_num_cards() const {
+  int8_t res = 0;
+  for (auto i = 0u; i < m_axle.size(); ++i) {
+    res += m_count[i] * (m_axle[i] == 0 ? 1 : 2 * m_axle[i]);
+  }
+  return res;
+}
+
+bool Format::is_compatible(const Format& other) const {
+  if (other.suit() != m_suit and other.suit() != Suit::J) return false;
+
+  // I use a N^2 algorithm here as the vector sizes are small
+  for (auto i = 0u; i < m_axle.size(); ++i) {
+    if (other.at_or_0(m_axle[i]) != m_count[i]) return false;
+  }
+  return true;
+}
+}  // namespace rankup
+
+namespace rankup {
 Pattern::CompareCode Pattern::is_comparable(const Pattern& other) const {
   if (count() != other.count()) return CompareCode::DIFFERENT_COUNT;
   return (single_suit() or other.single_suit()) ? CompareCode::OK
                                                 : CompareCode::NO_SINGLE_SUIT;
 }
 
-bool Pattern::operator<(const Pattern& other) const {
+bool Pattern::is_beaten_by(const Pattern& other) const {
   switch (is_comparable(other)) {
     case CompareCode::DIFFERENT_COUNT:
       throw std::runtime_error("not comparable because counts are different!");
