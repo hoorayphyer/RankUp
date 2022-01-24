@@ -25,13 +25,13 @@ class Format {
      @return the reference to the count of the axle.
      @throw std::out_of_range if axle doesn't exist.
    */
-  const int8_t& at(const int8_t& axle) const;
-  int8_t& at(const int8_t& axle);
+  const int8_t& count_at(const int8_t& axle) const;
+  int8_t& count_at(const int8_t& axle);
 
   /**
      @return the count of the axle if axle exists, and 0 otherwise
    */
-  int8_t at_or_0(const int8_t& axle) const noexcept;
+  int8_t count_at_or_0(const int8_t& axle) const noexcept;
 
   const Suit& suit() const { return m_suit; }
 
@@ -72,20 +72,32 @@ class Composition : private Format {
 
   const Format& format() const { return static_cast<const Format&>(*this); }
 
+  /**
+     @return whether this composition defeats `other`, with the format set by
+     the former.
+
+     @throw std::runtime_error if other has a different number of cards.
+   */
+  bool defeats(const Composition& other) const;
+
  private:
-  // keyed by Format::m_axle
+  // keyed by Format::m_axle, and the vector of each axle is sorted from low to
+  // high
   std::vector<std::vector<int8_t>> m_start;
 
-  // minor lord components that must be separately stored
-  struct ExtraMinorLordPairs {
-    // assoc is the associated component of at least axle-3 that contains AA,
-    // minor-minor, major-major
-    int8_t m_assoc_start;
-    int8_t m_assoc_axle;
-    std::vector<int8_t> m_start;
-  };
+  // TODO I want to make Composition free of any minor lords complications. I
+  // want to move these complications to other classes
 
-  std::optional<ExtraMinorLordPairs> m_extra;
+  // // minor lord components that must be separately stored
+  // struct ExtraMinorLordPairs {
+  //   // assoc is the associated component of at least axle-3 that contains AA,
+  //   // minor-minor, major-major
+  //   int8_t m_assoc_start;
+  //   int8_t m_assoc_axle;
+  //   std::vector<int8_t> m_start;
+  // };
+
+  // std::optional<ExtraMinorLordPairs> m_extra;
 
   explicit Composition(Suit suit) : Format(suit) {}
 };
@@ -163,6 +175,41 @@ OStream& operator<<(OStream& o, const Pattern::Component& comp) {
   return o;
 }
 
+class Rules;
+
+/**
+   RoundRules enforces rules when a Composition is specified.
+ */
+class RoundRules {
+ public:
+  RoundRules(const Rules& rules, Composition cmp)
+      : m_rules(rules), m_cmp(std::move(cmp)) {}
+
+  /**
+     When a format is present, check if the selected cards are valid to play
+
+     @param hand, the entire cards of a player
+     @param selected, a bit array of the same size as cards that specifies
+     which cards are picked for playing
+
+     @return empty string if valid, otherwise a string explaining invalidity
+   */
+  std::string check_valid_for_entire_hand(
+      const std::vector<Card>& hand, const std::vector<bool>& selected) const;
+
+  /**
+     @return true if the current composition is defeated by cards, and false
+     otherwise.
+
+     @throw std::runtime_error if cards has a different total number.
+   */
+  bool update_if_defeated_by(const std::vector<Card>& cards);
+
+ private:
+  const Rules& m_rules;
+  Composition m_cmp;
+};
+
 class Rules {
  public:
   explicit Rules(Card lord_card);
@@ -173,6 +220,23 @@ class Rules {
      @throw std::runtime_error if cards is empty.
    */
   Pattern parse(const std::vector<Card>& cards) const;
+
+  /**
+     @param hand, the entire cards of a player
+     @param selected, a bit array of the same size as cards that specifies
+     which cards are picked for playing
+
+     @return empty string if valid, otherwise a string explaining invalidity
+   */
+  std::string check_valid_as_first_cards(
+      const std::vector<Card>& hand, const std::vector<bool>& selected) const;
+
+  /**
+     @return a RoundRules instance with `cards`.
+
+     @throw std::runtime_error if cards don't have the same suit.
+   */
+  RoundRules start_round_with(const std::vector<Card>& cards) const;
 
   struct RulesImpl;
 

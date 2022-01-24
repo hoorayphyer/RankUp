@@ -5,6 +5,7 @@
 #include <limits>
 #include <stdexcept>
 
+#include "common/definitions.hpp"
 #include "rules_impl.hpp"
 
 namespace rankup {
@@ -23,7 +24,7 @@ int8_t& Format::operator[](const int8_t& axle) {
   }
 }
 
-const int8_t& Format::at(const int8_t& axle) const {
+const int8_t& Format::count_at(const int8_t& axle) const {
   auto idx = get_index(axle);
   if (idx == INVALID_INDEX) {
     std::string msg = "Axle " + std::to_string(static_cast<int>(axle)) +
@@ -33,11 +34,11 @@ const int8_t& Format::at(const int8_t& axle) const {
   return m_count[idx];
 }
 
-int8_t& Format::at(const int8_t& axle) {
-  return const_cast<int8_t&>(static_cast<const Format&>(*this).at(axle));
+int8_t& Format::count_at(const int8_t& axle) {
+  return const_cast<int8_t&>(static_cast<const Format&>(*this).count_at(axle));
 }
 
-int8_t Format::at_or_0(const int8_t& axle) const noexcept {
+int8_t Format::count_at_or_0(const int8_t& axle) const noexcept {
   auto idx = get_index(axle);
   return idx != INVALID_INDEX ? m_count[idx] : 0;
 }
@@ -53,11 +54,75 @@ int8_t Format::total_num_cards() const {
 bool Format::is_compatible(const Format& other) const {
   if (other.suit() != m_suit and other.suit() != Suit::J) return false;
 
+  if (m_axle.size() != other.m_axle.size()) return false;
+
   // I use a N^2 algorithm here as the vector sizes are small
   for (auto i = 0u; i < m_axle.size(); ++i) {
-    if (other.at_or_0(m_axle[i]) != m_count[i]) return false;
+    if (other.count_at_or_0(m_axle[i]) != m_count[i]) return false;
   }
   return true;
+}
+}  // namespace rankup
+
+namespace rankup {
+bool Composition::defeats(const Composition& other) const {
+  if (total_num_cards() != other.total_num_cards()) {
+    throw std::runtime_error(
+        "Composition::defeats called with mismatched total number of cards!");
+  }
+
+  if (suit() == other.suit()) {
+    if (is_compatible(other)) {
+      // this defeats `other` by having the greatest of ANY ONE type of axle >=
+      // that in `other`.
+      auto f_max_start = [](const Composition& cps, int8_t axle) {
+        auto idx = cps.get_index(axle);
+        // NOTE m_start is already sorted
+        return cps.m_start[idx].back();
+      };
+
+      for (const auto& axle : m_axle) {
+        const auto& max_start = f_max_start(*this, axle);
+        const auto& max_start_other = f_max_start(other, axle);
+        if (max_start >= max_start_other) return true;
+      }
+      return false;
+    } else {
+      // other's axle structure doesn't match, so it loses
+      return true;
+    }
+  } else if (suit() == Suit::J) {
+    // other isn't composed of lords, so always loses
+    return true;
+  } else if (other.suit() == Suit::J) {
+    // check if other has the same format
+    return is_compatible(other);
+  } else {
+    // other has folks of a different suit than this, so always loses
+    return true;
+  }
+}
+}  // namespace rankup
+
+namespace rankup {
+std::string RoundRules::check_valid_for_entire_hand(
+    const std::vector<Card>& hand, const std::vector<bool>& selected) const {
+  // TODO implement
+}
+
+bool RoundRules::update_if_defeated_by(const std::vector<Card>& cards) {
+  // TODO implement
+}
+}  // namespace rankup
+
+namespace rankup {
+std::string Rules::check_valid_as_first_cards(
+    const std::vector<Card>& hand, const std::vector<bool>& selected) const {
+  // TODO implement
+}
+
+RoundRules Rules::start_round_with(const std::vector<Card>& cards) const {
+  // TODO implement
 }
 }  // namespace rankup
 
