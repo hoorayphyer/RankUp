@@ -150,10 +150,20 @@ std::string Rules::check_valid_as_first_cards(
 }
 
 RoundRules Rules::start_round_with(const std::vector<Card>& cards) const {
-  // use same parse_for_single_composition here, and deal with minor lord
-  // complicaiton here
+  auto enh_cmp_opt = parse_for_single_suit(cards);
 
-  // TODO implement
+  if (!enh_cmp_opt) {
+    throw std::runtime_error(
+        "Rules::start_round_with called with cards of non-uniform suit!");
+  }
+
+  // NOTE that when starting a round, minor lord complication is resolved only
+  // using the direct_append_extra() method.
+  Composition cmp = enh_cmp_opt->empty_minor_lord_pairs()
+                        ? enh_cmp_opt->cmp
+                        : enh_cmp_opt->direct_append_extra();
+
+  return RoundRules(*this, std::move(cmp));
 }
 }  // namespace rankup
 

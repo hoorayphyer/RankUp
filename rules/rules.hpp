@@ -229,7 +229,7 @@ class Rules {
   /**
      @return a RoundRules instance with `cards`.
 
-     @throw std::runtime_error if cards don't have the same suit.
+     @throw std::runtime_error if cards i empty or cards doesn't have a uniform suit.
    */
   RoundRules start_round_with(const std::vector<Card>& cards) const;
 
