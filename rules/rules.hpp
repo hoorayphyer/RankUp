@@ -217,11 +217,6 @@ class Rules {
   ~Rules();
 
   /**
-     @throw std::runtime_error if cards is empty.
-   */
-  Pattern parse(const std::vector<Card>& cards) const;
-
-  /**
      @param hand, the entire cards of a player
      @param selected, a bit array of the same size as cards that specifies
      which cards are picked for playing
@@ -240,10 +235,48 @@ class Rules {
 
   struct RulesImpl;
 
+  friend class RoundRules;
+
  private:
   Card m_lord_card;
 
   std::unique_ptr<RulesImpl> m_impl;
+
+  // keyed by Format::m_axle, and the vector of each axle is sorted from low to
+  // high
+  std::vector<std::vector<int8_t>> m_start;
+
+  // minor lord components that must be separately stored
+  struct ExtraMinorLordPairs {
+    // assoc is the associated component of at least axle-3 that contains AA,
+    // minor-minor, major-major
+    int8_t assoc_start = 0;
+    int8_t assoc_axle = 0;
+    std::vector<int8_t> start;
+  };
+
+  struct EnhancedComposition {
+    Composition cmp;
+    ExtraMinorLordPairs extra;
+
+    bool empty_minor_lord_pairs() const { return extra.start.empty(); }
+
+    // the following are two ways of absorbing extra into cmp to make a single
+    // Composition representation. They return the newly constructed Composition
+    // objects by first making a copy of cmp. This is justified because these
+    // functions are very rarely used.
+    Composition direct_append_extra() const;
+    Composition split_merge_extra() const;
+  };
+
+  /**
+     @return EnhancedComposition object if cards have the same suit, and nullopt
+     otherwise indicating the cards have more than one suit.
+
+     @throw std::runtime_error if cards is empty.
+   */
+  std::optional<EnhancedComposition> parse_for_single_suit(
+      const std::vector<Card>& cards) const;
 };
 
 }  // namespace rankup

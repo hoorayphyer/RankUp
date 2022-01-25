@@ -111,7 +111,35 @@ std::string RoundRules::check_valid_for_entire_hand(
 }
 
 bool RoundRules::update_if_defeated_by(const std::vector<Card>& cards) {
-  // TODO implement
+  if (cards.size() != m_cmp.total_num_cards()) {
+    throw std::runtime_error(
+        "RoundRules::update_if_defeated_by called with mismatched total number "
+        "of cards!");
+  }
+
+  auto enh_cmp_opt = m_rules.parse_for_single_suit(cards);
+
+  if (!enh_cmp_opt) {
+    return false;
+  }
+
+  auto defeated_by = [this](auto&& cmp) {
+    if (m_cmp.defeats(cmp)) return false;
+    // update the current composition to be the winner
+    m_cmp = std::move(cmp);
+    return true;
+  };
+
+  if (enh_cmp_opt->empty_minor_lord_pairs()) {
+    return defeated_by(std::move(enh_cmp_opt->cmp));
+  } else {
+    // out of the two possible interpretations, at most one matches the format
+    // of m_cmp and hence stands a (very high) chance to win.
+    if (defeated_by(enh_cmp_opt->direct_append_extra()))
+      return true;
+    else
+      return defeated_by(enh_cmp_opt->split_merge_extra());
+  }
 }
 }  // namespace rankup
 
@@ -122,28 +150,10 @@ std::string Rules::check_valid_as_first_cards(
 }
 
 RoundRules Rules::start_round_with(const std::vector<Card>& cards) const {
+  // use same parse_for_single_composition here, and deal with minor lord
+  // complicaiton here
+
   // TODO implement
-}
-}  // namespace rankup
-
-namespace rankup {
-Pattern::CompareCode Pattern::is_comparable(const Pattern& other) const {
-  if (count() != other.count()) return CompareCode::DIFFERENT_COUNT;
-  return (single_suit() or other.single_suit()) ? CompareCode::OK
-                                                : CompareCode::NO_SINGLE_SUIT;
-}
-
-bool Pattern::is_beaten_by(const Pattern& other) const {
-  switch (is_comparable(other)) {
-    case CompareCode::DIFFERENT_COUNT:
-      throw std::runtime_error("not comparable because counts are different!");
-    case CompareCode::NO_SINGLE_SUIT:
-      throw std::runtime_error(
-          "not comparable because neither has a single suit!");
-    default:;
-  };
-
-  // TODO
 }
 }  // namespace rankup
 
