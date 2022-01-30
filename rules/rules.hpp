@@ -41,11 +41,12 @@ class Format {
   int8_t total_num_cards() const;
 
   /**
-     @return whether `other` is compatible with this format. A compatible format
-     has the same axle-count structure and has either the same suit or a lord
-     suit denoted by Suit::J.
+     @return whether this format is covered by `other`, which requires that
+     `other` has either the same suit or a lord suit denoted by Suit::J, and its
+     axle structure can afford that of this format. NOTE that `other` can have
+     more cards.
    */
-  bool is_compatible(const Format& other) const;
+  bool is_covered_by(const Format& other) const;
 
  protected:
   Suit m_suit;
@@ -61,6 +62,13 @@ class Format {
      otherwise
    */
   int get_index(const int8_t& axle) const noexcept;
+
+  /**
+     @throw std::runtime_error if m_axle is empty.
+   */
+  // TODO is it possible to declare that Format will always have one card at
+  // least?? Look at this again when everything is done.
+  int get_index_highest_axle() const;
 };
 
 /**
@@ -81,9 +89,18 @@ class Composition : private Format {
   bool defeats(const Composition& other) const;
 
  private:
-  // keyed by Format::m_axle, and the vector of each axle is sorted from low to
-  // high
-  std::vector<std::vector<int8_t>> m_start;
+  class Starts {
+   public:
+    // TODO other methods
+    const int8_t& greatest() const;
+
+   private:
+    mutable bool m_sorted = false;
+    mutable std::vector<int8_t> m_data;
+  };
+
+  // keyed by Format::m_axle
+  std::vector<Starts> m_start;
 
   // TODO I want to make Composition free of any minor lords complications. I
   // want to move these complications to other classes
@@ -229,7 +246,8 @@ class Rules {
   /**
      @return a RoundRules instance with `cards`.
 
-     @throw std::runtime_error if cards i empty or cards doesn't have a uniform suit.
+     @throw std::runtime_error if cards i empty or cards doesn't have a uniform
+     suit.
    */
   RoundRules start_round_with(const std::vector<Card>& cards) const;
 

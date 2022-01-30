@@ -14,6 +14,14 @@ int Format::get_index(const int8_t& axle) const noexcept {
   return it != m_axle.end() ? std::distance(m_axle.begin(), it) : INVALID_INDEX;
 }
 
+int Format::get_index_highest_axle() const {
+  if (m_axle.empty())
+    throw std::runtime_error(
+        "No cards exist when calling get_index_highest_axle");
+  auto it = std::max_element(m_axle.begin(), m_axle.end());
+  return std::distance(m_axle.begin(), it);
+}
+
 int8_t& Format::operator[](const int8_t& axle) {
   auto idx = get_index(axle);
   if (idx != INVALID_INDEX) {
@@ -51,8 +59,13 @@ int8_t Format::total_num_cards() const {
   return res;
 }
 
-bool Format::is_compatible(const Format& other) const {
+bool Format::is_covered_by(const Format& other) const {
   if (other.suit() != m_suit and other.suit() != Suit::J) return false;
+
+  auto ind_ax_max = std::distance(
+      m_axle.begin(), std::max_element(m_axle.begin(), m_axle.end()));
+
+  // TODO not finished yet.
 
   if (m_axle.size() != other.m_axle.size()) return false;
 
@@ -65,6 +78,15 @@ bool Format::is_compatible(const Format& other) const {
 }  // namespace rankup
 
 namespace rankup {
+
+const int8_t& Composition::Starts::greatest() const {
+  if (!m_sorted) {
+    std::sort(m_data.begin(), m_data.end());
+    m_sorted = true;
+  }
+  return m_data.back();
+}
+
 bool Composition::defeats(const Composition& other) const {
   if (total_num_cards() != other.total_num_cards()) {
     throw std::runtime_error(
@@ -72,21 +94,21 @@ bool Composition::defeats(const Composition& other) const {
   }
 
   if (suit() == other.suit()) {
-    if (is_compatible(other)) {
-      // this defeats `other` by having the greatest of ANY ONE type of axle >=
+    if (is_covered_by(other)) {
+      // this defeats `other` by having the greatest of the highest axle >=
       // that in `other`.
-      auto f_max_start = [](const Composition& cps, int8_t axle) {
-        auto idx = cps.get_index(axle);
-        // NOTE m_start is already sorted
-        return cps.m_start[idx].back();
-      };
+      auto idx_ax_highest = get_index_highest_axle();
+      auto ax_highest = m_axle[idx_ax_highest];
+      auto max_start_ax_highest = m_start[idx_ax_highest].greatest();
 
-      for (const auto& axle : m_axle) {
-        const auto& max_start = f_max_start(*this, axle);
-        const auto& max_start_other = f_max_start(other, axle);
-        if (max_start >= max_start_other) return true;
+      for (int i = 0; i < other.m_axle.size(); ++i) {
+        auto ax_o = other.m_axle[i];
+        if (ax_o < ax_highest) continue;
+        // NOTE to correct if ax_o > ax_highest
+        auto max_start_o = other.m_start[i].greatest() + ax_o - ax_highest;
+        if (max_start_o > max_start_ax_highest) return false;
       }
-      return false;
+      return true;
     } else {
       // other's axle structure doesn't match, so it loses
       return true;
@@ -96,7 +118,7 @@ bool Composition::defeats(const Composition& other) const {
     return true;
   } else if (other.suit() == Suit::J) {
     // check if other has the same format
-    return is_compatible(other);
+    return is_covered_by(other);
   } else {
     // other has folks of a different suit than this, so always loses
     return true;
