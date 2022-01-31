@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <limits>
+#include <queue>  // priority_queue
 #include <stdexcept>
 
 #include "common/definitions.hpp"
@@ -22,7 +23,7 @@ int Format::get_index_highest_axle() const {
   return std::distance(m_axle.begin(), it);
 }
 
-int8_t& Format::operator[](const int8_t& axle) {
+int8_t& Format::get_count(const int8_t& axle) {
   auto idx = get_index(axle);
   if (idx != INVALID_INDEX) {
     return m_count[idx];
@@ -32,7 +33,7 @@ int8_t& Format::operator[](const int8_t& axle) {
   }
 }
 
-const int8_t& Format::count_at(const int8_t& axle) const {
+const int8_t& Format::get_count_at(const int8_t& axle) const {
   auto idx = get_index(axle);
   if (idx == INVALID_INDEX) {
     std::string msg = "Axle " + std::to_string(static_cast<int>(axle)) +
@@ -42,11 +43,12 @@ const int8_t& Format::count_at(const int8_t& axle) const {
   return m_count[idx];
 }
 
-int8_t& Format::count_at(const int8_t& axle) {
-  return const_cast<int8_t&>(static_cast<const Format&>(*this).count_at(axle));
+int8_t& Format::get_count_at(const int8_t& axle) {
+  return const_cast<int8_t&>(
+      static_cast<const Format&>(*this).get_count_at(axle));
 }
 
-int8_t Format::count_at_or_0(const int8_t& axle) const noexcept {
+int8_t Format::get_count_at_or_0(const int8_t& axle) const noexcept {
   auto idx = get_index(axle);
   return idx != INVALID_INDEX ? m_count[idx] : 0;
 }
@@ -71,9 +73,60 @@ bool Format::is_covered_by(const Format& other) const {
 
   // I use a N^2 algorithm here as the vector sizes are small
   for (auto i = 0u; i < m_axle.size(); ++i) {
-    if (other.count_at_or_0(m_axle[i]) != m_count[i]) return false;
+    if (other.get_count_at_or_0(m_axle[i]) != m_count[i]) return false;
   }
   return true;
+}
+
+Format Format::extract_required_format_from(const Format& other) const {
+  assert(suit() == other.suit());
+
+  assert(total_num_cards() > 0);
+  assert(other.total_num_cards() > 0);
+
+  auto make_pq = [](const Format& f) {
+    std::priority_queue<int8_t> res;
+    for (int i = 0; i < f.m_axle.size(); ++i) {
+      // push m_ax by m_count times
+      for (int c = 0; c < f.m_count[i]; ++c) {
+        res.push(f.m_axle[i]);
+      }
+    }
+    return res;
+  };
+
+  auto pq_a = make_pq(*this);
+  auto pq_b = make_pq(other);
+
+  Format res(suit());
+
+  bool is_pop_a = true;
+  bool is_pop_b = true;
+
+  while (!pq_a.empty() and !pq_b.empty()) {
+    auto ax_a = pq_a.top();
+    if (is_pop_a) pq_a.pop();
+    auto ax_b = pq_b.top();
+    if (is_pop_b) pq_b.pop();
+
+    if (ax_a < ax_b) {
+      ++res.get_count(ax_a);
+      pq_b.push(ax_b - ax_a);
+      is_pop_a = true;
+      is_pop_b = false;
+    } else if (ax_a > ax_b) {
+      ++res.get_count(ax_b);
+      pq_a.push(ax_a - ax_b);
+      is_pop_a = false;
+      is_pop_b = true;
+    } else {
+      ++res.get_count(ax_a);
+      is_pop_a = true;
+      is_pop_b = true;
+    }
+  }
+
+  return res;
 }
 }  // namespace rankup
 

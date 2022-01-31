@@ -19,19 +19,19 @@ class Format {
      entry is created before returning its count whose value is initialized to
      0.
    */
-  int8_t& operator[](const int8_t& axle);
+  int8_t& get_count(const int8_t& axle);
 
   /**
      @return the reference to the count of the axle.
      @throw std::out_of_range if axle doesn't exist.
    */
-  const int8_t& count_at(const int8_t& axle) const;
-  int8_t& count_at(const int8_t& axle);
+  const int8_t& get_count_at(const int8_t& axle) const;
+  int8_t& get_count_at(const int8_t& axle);
 
   /**
      @return the count of the axle if axle exists, and 0 otherwise
    */
-  int8_t count_at_or_0(const int8_t& axle) const noexcept;
+  int8_t get_count_at_or_0(const int8_t& axle) const noexcept;
 
   const Suit& suit() const { return m_suit; }
 
@@ -47,6 +47,8 @@ class Format {
      more cards.
    */
   bool is_covered_by(const Format& other) const;
+
+  Format extract_required_format_from(const Format& other) const;
 
  protected:
   Suit m_suit;
@@ -200,7 +202,7 @@ class Rules;
 class RoundRules {
  public:
   RoundRules(const Rules& rules, Composition cmp)
-      : m_rules(rules), m_cmp(std::move(cmp)) {}
+      : m_rules(rules), m_fmt(cmp.format()), m_winning_cmp(std::move(cmp)) {}
 
   /**
      When a format is present, check if the selected cards are valid to play
@@ -224,7 +226,10 @@ class RoundRules {
 
  private:
   const Rules& m_rules;
-  Composition m_cmp;
+  const Format m_fmt;
+  // NOTE m_winning_cmp may have a different suit than the original format, but
+  // must have the same components.
+  Composition m_winning_cmp;
 };
 
 class Rules {
