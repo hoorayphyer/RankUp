@@ -24,6 +24,8 @@ int Format::get_index_highest_axle() const {
 }
 
 int8_t& Format::get_count(const int8_t& axle) {
+  if (!m_suit) throw std::runtime_error("get_count called in an empty format!");
+
   auto idx = get_index(axle);
   if (idx != INVALID_INDEX) {
     return m_count[idx];
@@ -62,7 +64,12 @@ int8_t Format::total_num_cards() const {
 }
 
 bool Format::is_covered_by(const Format& other) const {
-  if (other.suit() != m_suit and other.suit() != Suit::J) return false;
+  if (!suit())
+    return true;
+  else if (!other.suit())
+    return false;
+
+  if (*other.suit() != *m_suit and *other.suit() != Suit::J) return false;
 
   auto ind_ax_max = std::distance(
       m_axle.begin(), std::max_element(m_axle.begin(), m_axle.end()));
@@ -79,7 +86,9 @@ bool Format::is_covered_by(const Format& other) const {
 }
 
 Format Format::extract_required_format_from(const Format& other) const {
-  assert(suit() == other.suit());
+  if (!suit() or !other.suit()) return {};
+
+  assert(*suit() == *other.suit());
 
   assert(total_num_cards() > 0);
   assert(other.total_num_cards() > 0);
@@ -98,7 +107,7 @@ Format Format::extract_required_format_from(const Format& other) const {
   auto pq_a = make_pq(*this);
   auto pq_b = make_pq(other);
 
-  Format res(suit());
+  Format res(*suit());
 
   bool is_pop_a = true;
   bool is_pop_b = true;
@@ -180,13 +189,31 @@ bool Composition::defeats(const Composition& other) const {
 }  // namespace rankup
 
 namespace rankup {
-std::string RoundRules::check_valid_for_entire_hand(
-    const std::vector<Card>& hand, const std::vector<bool>& selected) const {
-  // TODO implement
+Format RoundRules::get_required_format(const std::vector<Card>& hand) const {
+  // TODO assert(m_fmt has suit and m_fmt.total_num_cards > 0). This should be
+  // guaranteed once RoundRules is created.
+
+  std::vector<Card> cards;
+  {
+    // extract all cards with the given suit
+    // TODO can we make it lazy?
+    std::copy_if(hand.begin(), hand.end(), std::back_inserter(cards),
+                 [suit_given = *m_fmt.suit()](const auto& card) {
+                   return card.suit() == suit_given;
+                 });
+  }
+  if (cards.empty()) return {};
+
+  auto enh_cmp = *(m_rules.parse_for_single_suit(cards));
+  if (enh_cmp.empty_minor_lord_pairs()) {
+    return m_fmt.extract_required_format_from(enh_cmp.cmp.format());
+  } else {
+    // TODO
+  }
 }
 
 bool RoundRules::update_if_defeated_by(const std::vector<Card>& cards) {
-  if (cards.size() != m_cmp.total_num_cards()) {
+  if (cards.size() != m_winning_cmp.format().total_num_cards()) {
     throw std::runtime_error(
         "RoundRules::update_if_defeated_by called with mismatched total number "
         "of cards!");
@@ -199,9 +226,9 @@ bool RoundRules::update_if_defeated_by(const std::vector<Card>& cards) {
   }
 
   auto defeated_by = [this](auto&& cmp) {
-    if (m_cmp.defeats(cmp)) return false;
+    if (m_winning_cmp.defeats(cmp)) return false;
     // update the current composition to be the winner
-    m_cmp = std::move(cmp);
+    m_winning_cmp = std::move(cmp);
     return true;
   };
 
@@ -243,6 +270,14 @@ RoundRules Rules::start_round_with(const std::vector<Card>& cards) const {
 }  // namespace rankup
 
 namespace rankup {
+
+Composition Rules::EnhancedComposition::direct_append_extra() const {
+  // TODO implement
+}
+
+Composition Rules::EnhancedComposition::split_merge_extra() const {
+  // TODO implement
+}
 
 Rules::Rules(Card lord_card) : m_lord_card(std::move(lord_card)) {
   // Three cases of lordedness

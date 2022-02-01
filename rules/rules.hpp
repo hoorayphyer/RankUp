@@ -12,12 +12,16 @@ namespace rankup {
 
 class Format {
  public:
+  Format() = default;
   explicit Format(Suit suit) : m_suit(suit) {}
 
   /**
      @return the reference to the count of the axle. If axle doesn't exist, an
      entry is created before returning its count whose value is initialized to
      0.
+
+     @throw std::runtime_error if Format doesn't have a suit, i.e. if Format is
+     empty.
    */
   int8_t& get_count(const int8_t& axle);
 
@@ -33,7 +37,7 @@ class Format {
    */
   int8_t get_count_at_or_0(const int8_t& axle) const noexcept;
 
-  const Suit& suit() const { return m_suit; }
+  const std::optional<Suit>& suit() const { return m_suit; }
 
   /**
      @return the total number of cards this format represents.
@@ -51,7 +55,7 @@ class Format {
   Format extract_required_format_from(const Format& other) const;
 
  protected:
-  Suit m_suit;
+  std::optional<Suit> m_suit = {};
 
   // use two vectors to emulate a map from axle to its count. In practice, the
   // length of each vector is expected to be <= 3 most of the time.
@@ -70,6 +74,11 @@ class Format {
    */
   // TODO is it possible to declare that Format will always have one card at
   // least?? Look at this again when everything is done.
+  //
+  // Well, there is value to have Format with empty Cards. See
+  // RoundRules::get_required_format. An empty Format is covered by any format.
+  //
+  // If so, one should make suit() return an optional.
   int get_index_highest_axle() const;
 };
 
@@ -205,16 +214,13 @@ class RoundRules {
       : m_rules(rules), m_fmt(cmp.format()), m_winning_cmp(std::move(cmp)) {}
 
   /**
-     When a format is present, check if the selected cards are valid to play
+     Based on the given RoundRules, scan the hand to find the required format of
+     cards to play
 
      @param hand, the entire cards of a player
-     @param selected, a bit array of the same size as cards that specifies
-     which cards are picked for playing
-
-     @return empty string if valid, otherwise a string explaining invalidity
+     @return the required format of cards to be played from the hand
    */
-  std::string check_valid_for_entire_hand(
-      const std::vector<Card>& hand, const std::vector<bool>& selected) const;
+  Format get_required_format(const std::vector<Card>& hand) const;
 
   /**
      @return true if the current composition is defeated by cards, and false
@@ -273,6 +279,11 @@ class Rules {
   struct ExtraMinorLordPairs {
     // assoc is the associated component of at least axle-3 that contains AA,
     // minor-minor, major-major
+    //
+    // TODO maybe we just need std::vector<int8_t> start. The other two can be
+    // reconstructed on the fly. Although it can be costly, the chances of
+    // having to do that in real life is extremely low. So we are good. The good
+    // part is that we can get rid of this ExtraMinorLordPairs class.
     int8_t assoc_start = 0;
     int8_t assoc_axle = 0;
     std::vector<int8_t> start;
