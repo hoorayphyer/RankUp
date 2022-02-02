@@ -205,10 +205,15 @@ Format RoundRules::get_required_format(const std::vector<Card>& hand) const {
   if (cards.empty()) return {};
 
   auto enh_cmp = *(m_rules.parse_for_single_suit(cards));
+
   if (enh_cmp.empty_minor_lord_pairs()) {
     return m_fmt.extract_required_format_from(enh_cmp.cmp.format());
   } else {
-    // TODO
+    // CLAIM: m_fmt is played by the first player, so it's impossible that m_fmt
+    // has mixed axles if it is lord. In this case, one should just use
+    // direct_append_extra
+    return m_fmt.extract_required_format_from(
+        enh_cmp.direct_append_extra().format());
   }
 }
 
