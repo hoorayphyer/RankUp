@@ -5,6 +5,7 @@
 #include <limits>
 #include <queue>  // priority_queue
 #include <stdexcept>
+#include <type_traits>
 
 #include "common/definitions.hpp"
 #include "rules_impl.hpp"
@@ -23,15 +24,18 @@ int Format::get_index_highest_axle() const {
   return std::distance(m_axle.begin(), it);
 }
 
-int8_t& Format::get_count(const int8_t& axle) {
-  if (!m_suit) throw std::runtime_error("get_count called in an empty format!");
+int8_t Format::insert(int8_t axle) {
+  if (!m_suit)
+    throw std::runtime_error("Format::insert called in an empty format!");
 
   auto idx = get_index(axle);
   if (idx != INVALID_INDEX) {
-    return m_count[idx];
+    ++m_count[idx];
+    return idx;
   } else {
     m_axle.push_back(axle);
-    return m_count.emplace_back(0);
+    m_count.emplace_back(1);
+    return m_axle.size() - 1;
   }
 }
 
@@ -119,17 +123,17 @@ Format Format::extract_required_format_from(const Format& other) const {
     if (is_pop_b) pq_b.pop();
 
     if (ax_a < ax_b) {
-      ++res.get_count(ax_a);
+      res.insert(ax_a);
       pq_b.push(ax_b - ax_a);
       is_pop_a = true;
       is_pop_b = false;
     } else if (ax_a > ax_b) {
-      ++res.get_count(ax_b);
+      res.insert(ax_b);
       pq_a.push(ax_a - ax_b);
       is_pop_a = false;
       is_pop_b = true;
     } else {
-      ++res.get_count(ax_a);
+      res.insert(ax_a);
       is_pop_a = true;
       is_pop_b = true;
     }
@@ -140,6 +144,10 @@ Format Format::extract_required_format_from(const Format& other) const {
 }  // namespace rankup
 
 namespace rankup {
+void Composition::Starts::insert(int8_t start) {
+  m_data.push_back(start);
+  m_sorted = false;
+}
 
 const int8_t& Composition::Starts::greatest() const {
   if (!m_sorted) {
@@ -147,6 +155,12 @@ const int8_t& Composition::Starts::greatest() const {
     m_sorted = true;
   }
   return m_data.back();
+}
+
+int8_t Composition::insert(int8_t axle, int8_t start) {
+  auto idx = Format::insert(axle);
+  m_start[idx].insert(start);
+  return idx;
 }
 
 bool Composition::defeats(const Composition& other) const {
@@ -190,13 +204,13 @@ bool Composition::defeats(const Composition& other) const {
 
 namespace rankup {
 Format RoundRules::get_required_format(const std::vector<Card>& hand) const {
-  // TODO assert(m_fmt has suit and m_fmt.total_num_cards > 0). This should be
+  // TOLDO assert(m_fmt has suit and m_fmt.total_num_cards > 0). This should be
   // guaranteed once RoundRules is created.
 
   std::vector<Card> cards;
   {
     // extract all cards with the given suit
-    // TODO can we make it lazy?
+    // TOLDO can we make it lazy?
     std::copy_if(hand.begin(), hand.end(), std::back_inserter(cards),
                  [suit_given = *m_fmt.suit()](const auto& card) {
                    return card.suit() == suit_given;
@@ -311,25 +325,25 @@ namespace parse_impl {
    @param cards, guaranteed to have size > 0
  */
 std::tuple<bool, Suit, std::vector<Value>> construct_sorted_values(
-    const std::vector<Card>& cards, const Rules::RulesImpl* impl) {
+    const std::vector<Card>& cards, const Rules::RulesImpl& impl) {
   bool single_suit = true;
   Suit suit;
   std::vector<Value> values;
   values.reserve(cards.size());
 
-  auto lorded_suit = [impl](const Card& card) {
+  auto lorded_suit = [&impl](const Card& card) {
     // Here we use Suit::J to represent all lords
-    return impl->is_lord(card) ? Suit::J : card.suit();
+    return impl.is_lord(card) ? Suit::J : card.suit();
   };
 
   suit = lorded_suit(cards[0]);
-  values.push_back(impl->evaluate(cards[0]));
+  values.push_back(impl.evaluate(cards[0]));
   for (auto i = 1u; i < cards.size(); ++i) {
     if (lorded_suit(cards[i]) != suit) {
       single_suit = false;
       break;
     }
-    values.push_back(impl->evaluate(cards[i]));
+    values.push_back(impl.evaluate(cards[i]));
   }
 
   if (single_suit) {
@@ -339,12 +353,16 @@ std::tuple<bool, Suit, std::vector<Value>> construct_sorted_values(
   return {single_suit, suit, values};
 }
 
+struct Component {
+  int8_t axle;
+  int8_t start;
+};
+
 /**
    @param values, values are sorted, free of complications due to minor lords.
  */
-std::vector<Pattern::Component> parse_for_components(
-    const std::vector<Value>& values) {
-  std::vector<Pattern::Component> res;
+std::vector<Component> parse_to_components(const std::vector<Value>& values) {
+  std::vector<Component> res;
   if (values.empty()) return res;
 
   // define two modes for parsing.
@@ -387,7 +405,7 @@ std::vector<Pattern::Component> parse_for_components(
     }
   };
 
-  // conceptually append a sentinel to `values` to make sure the last element in
+  // append a sentinel to `values` to make sure the last element in
   // `values` is stored.
   const Value sentinel(std::numeric_limits<int8_t>::max());
   for (auto i = 1u; i <= values.size(); ++i) {
@@ -403,24 +421,36 @@ std::vector<Pattern::Component> parse_for_components(
 
 }  // namespace parse_impl
 
-Pattern Rules::parse(const std::vector<Card>& cards) const {
+std::optional<Rules::EnhancedComposition> Rules::parse_for_single_suit(
+    const std::vector<Card>& cards) const {
+  // TOLDO is this necessary
   if (cards.size() == 0) {
     throw std::runtime_error("Parsing empty cards is forbidden!");
   }
-  Pattern pat;
-  std::vector<Value> values;
+  std::optional<Rules::EnhancedComposition> enh_cmp;
 
-  std::tie(pat.m_single_suit, pat.m_suit, values) =
-      parse_impl::construct_sorted_values(cards, m_impl.get());
-  if (!pat.m_single_suit) return pat;
-  pat.m_count = cards.size();
+  auto [is_single_suit, suit, values] =
+      parse_impl::construct_sorted_values(cards, *m_impl);
+  if (!is_single_suit) return enh_cmp;
 
   auto extra_minor_lord_pairs = m_impl->adjust_for_minor_lords(values);
 
-  pat.m_comps = parse_impl::parse_for_components(values);
-  pat.m_minor_lord_comps =
-      parse_impl::parse_for_components(extra_minor_lord_pairs);
+  Composition cmp(suit);
+  for (const auto& [axle, start] : parse_impl::parse_to_components(values)) {
+    cmp.insert(axle, start);
+  }
 
-  return pat;
+  auto minor_lord_comps =
+      parse_impl::parse_to_components(extra_minor_lord_pairs);
+  std::vector<int8_t> ml_pairs;
+  ml_pairs.reserve(minor_lord_comps.size());
+  for (const auto& [axle, start] : minor_lord_comps) {
+    assert(axle == 1);
+    ml_pairs.push_back(start);
+  }
+
+  enh_cmp.emplace(std::move(cmp), std::move(ml_pairs));
+
+  return enh_cmp;
 }
 }  // namespace rankup
