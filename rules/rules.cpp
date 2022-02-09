@@ -200,6 +200,17 @@ bool Composition::defeats(const Composition& other) const {
     return true;
   }
 }
+
+std::unordered_map<int8_t, std::vector<int8_t>> Composition::get_start_map()
+    const {
+  std::unordered_map<int8_t, std::vector<int8_t>> res;
+  for (auto i = 0u; i < m_axle.size(); ++i) {
+    res[m_axle[i]] = m_start[i].data();
+  }
+
+  return res;
+}
+
 }  // namespace rankup
 
 namespace rankup {
@@ -291,11 +302,50 @@ RoundRules Rules::start_round_with(const std::vector<Card>& cards) const {
 namespace rankup {
 
 Composition Rules::EnhancedComposition::direct_append_extra() const {
-  // TODO implement
+  auto res = cmp;
+  for (auto start : extra_ml_pair_start) {
+    res.insert(1, start);
+  }
+  return res;
 }
 
 Composition Rules::EnhancedComposition::split_merge_extra() const {
-  // TODO implement
+  // this function is expected to be called very rarely. So optimization is not
+  // needed.
+
+  if (extra_ml_pair_start.empty()) return cmp;
+
+  Composition res(*cmp.format().suit());
+
+  const auto ml_start = extra_ml_pair_start[0];
+
+  bool split_done = false;
+  for (const auto& [axle, starts] : cmp.get_start_map()) {
+    if (axle < 3) {
+      // axles less than 3 are not relevant.
+      for (auto st : starts) res.insert(axle, st);
+    } else {
+      for (auto st : starts) {
+        // The range is [st, end], both closed.
+        int8_t end = st + axle - 1;
+        if (!split_done and st < ml_start and ml_start < end) {
+          int8_t axle_1st = ml_start - st + 1;
+          res.insert(axle_1st, st);
+          int8_t axle_2nd = end - ml_start + 1;
+          res.insert(axle_2nd, ml_start);
+        } else {
+          res.insert(axle, st);
+        }
+      }
+    }
+  }
+
+  // insert all remaining minor lord pairs
+  for (auto i = 0u; i < extra_ml_pair_start.size() - 1; ++i) {
+    res.insert(1, ml_start);
+  }
+
+  return res;
 }
 
 Rules::Rules(Card lord_card) : m_lord_card(std::move(lord_card)) {
@@ -354,6 +404,9 @@ std::tuple<bool, Suit, std::vector<Value>> construct_sorted_values(
 }
 
 struct Component {
+  Component() = default;
+  Component(int8_t a, int8_t s) : axle(a), start(s) {}
+
   int8_t axle;
   int8_t start;
 };

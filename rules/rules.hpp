@@ -4,6 +4,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "common/card.hpp"
@@ -106,11 +107,20 @@ class Composition : private Format {
    */
   bool defeats(const Composition& other) const;
 
+  /**
+     This is an ad hoc funtion to be used in
+     Rules::EnhancedComposition::split_merge_extra().
+
+     @return map with axle as the key and vector of starts as the value
+   */
+  std::unordered_map<int8_t, std::vector<int8_t>> get_start_map() const;
+
  private:
   class Starts {
    public:
     void insert(int8_t start);
     const int8_t& greatest() const;
+    const auto& data() const { return m_data; }
 
    private:
     mutable bool m_sorted = false;
