@@ -99,6 +99,10 @@ class Composition : private Format {
 
   const Format& format() const { return static_cast<const Format&>(*this); }
 
+  Suit suit() const { return *format().suit(); }
+
+  auto total_num_cards() const { return format().total_num_cards(); }
+
   /**
      @return whether this composition defeats `other`, with the format set by
      the former.
@@ -115,6 +119,10 @@ class Composition : private Format {
    */
   std::unordered_map<int8_t, std::vector<int8_t>> get_start_map() const;
 
+  bool operator==(const Composition& other) const;
+
+  explicit operator std::string() const;
+
  private:
   class Starts {
    public:
@@ -122,14 +130,25 @@ class Composition : private Format {
     const int8_t& greatest() const;
     const auto& data() const { return m_data; }
 
+    bool operator!=(const Starts& other) const;
+    bool operator==(const Starts& other) const { return !(*this != other); }
+
    private:
     mutable bool m_sorted = false;
     mutable std::vector<int8_t> m_data;
+
+    const Starts& sorted() const;
   };
 
   // keyed by Format::m_axle
   std::vector<Starts> m_start;
 };
+
+template <typename OStream>
+OStream& operator<<(OStream& o, const Composition& cmp) {
+  o << static_cast<std::string>(cmp);
+  return o;
+}
 
 class Rules;
 
@@ -193,6 +212,7 @@ class Rules {
   struct RulesImpl;
 
   friend class RoundRules;
+  friend class TestRules;
 
  private:
   Card m_lord_card;

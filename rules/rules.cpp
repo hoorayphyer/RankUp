@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <limits>
 #include <queue>  // priority_queue
+#include <sstream>
 #include <stdexcept>
 #include <type_traits>
 
@@ -150,15 +151,26 @@ void Composition::Starts::insert(int8_t start) {
 }
 
 const int8_t& Composition::Starts::greatest() const {
+  sorted();
+  return m_data.back();
+}
+
+bool Composition::Starts::operator!=(const Starts& other) const {
+  return sorted().data() != other.sorted().data();
+}
+
+const Composition::Starts& Composition::Starts::sorted() const {
   if (!m_sorted) {
     std::sort(m_data.begin(), m_data.end());
     m_sorted = true;
   }
-  return m_data.back();
+
+  return *this;
 }
 
 int8_t Composition::insert(int8_t axle, int8_t start) {
   auto idx = Format::insert(axle);
+  if (idx >= m_start.size()) m_start.resize(idx + 1);
   m_start[idx].insert(start);
   return idx;
 }
@@ -211,6 +223,36 @@ std::unordered_map<int8_t, std::vector<int8_t>> Composition::get_start_map()
   return res;
 }
 
+bool Composition::operator==(const Composition& other) const {
+  if (suit() != other.suit()) return false;
+  if (m_axle.size() != other.m_axle.size()) return false;
+
+  for (auto i = 0u; i < m_axle.size(); ++i) {
+    auto axle = m_axle[i];
+    auto ind_o = other.get_index(axle);
+    if (ind_o == INVALID_INDEX) return false;
+
+    const auto& starts = m_start[i];
+    const auto& starts_o = other.m_start[ind_o];
+
+    if (starts != starts_o) return false;
+  }
+
+  return true;
+}
+
+Composition::operator std::string() const {
+  std::ostringstream ss;
+  ss << "Suit " << static_cast<int>(suit()) << ", ";
+  for (auto i = 0u; i < m_axle.size(); ++i) {
+    ss << "{ axle " << static_cast<int>(m_axle[i]) << ", [";
+    for (int start : m_start[i].data()) ss << start << ",";
+    ss << "] },";
+  }
+
+  return ss.str();
+}
+
 }  // namespace rankup
 
 namespace rankup {
@@ -243,7 +285,7 @@ Format RoundRules::get_required_format(const std::vector<Card>& hand) const {
 }
 
 bool RoundRules::update_if_defeated_by(const std::vector<Card>& cards) {
-  if (cards.size() != m_winning_cmp.format().total_num_cards()) {
+  if (cards.size() != m_winning_cmp.total_num_cards()) {
     throw std::runtime_error(
         "RoundRules::update_if_defeated_by called with mismatched total number "
         "of cards!");
@@ -315,7 +357,7 @@ Composition Rules::EnhancedComposition::split_merge_extra() const {
 
   if (extra_ml_pair_start.empty()) return cmp;
 
-  Composition res(*cmp.format().suit());
+  Composition res(cmp.suit());
 
   const auto ml_start = extra_ml_pair_start[0];
 

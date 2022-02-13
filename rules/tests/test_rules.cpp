@@ -1,5 +1,7 @@
 #include <catch2/catch.hpp>
+#include <cstdint>
 
+#include "common/card.hpp"
 #include "rules.hpp"
 #include "rules_impl.hpp"
 
@@ -378,6 +380,20 @@ SCENARIO("Regular Lordless Rules", "[rules]") {
   }
 }
 
+namespace rankup {
+class TestRules {
+ public:
+  TestRules(Card lord_card) : m_rules(std::move(lord_card)) {}
+
+  auto parse(const std::vector<Card>& cards) const {
+    return m_rules.parse_for_single_suit(cards);
+  }
+
+ private:
+  Rules m_rules;
+};
+}  // namespace rankup
+
 std::vector<Card> gen_for_suit(Suit suit, const std::vector<Rank>& ranks) {
   std::vector<Card> res;
   for (auto rank : ranks) {
@@ -387,14 +403,15 @@ std::vector<Card> gen_for_suit(Suit suit, const std::vector<Rank>& ranks) {
 }
 
 template <typename F>
-std::vector<Pattern::Component> gen_comps(
-    const F& f_eval,
+Composition gen_cmp(
+    Suit suit, const F& f_eval,
     const std::vector<std::pair<int8_t, Card>>& vec_of_axle_card_pairs) {
-  std::vector<Pattern::Component> res;
-  for (auto pair : vec_of_axle_card_pairs) {
-    auto val = f_eval(pair.second);
+  Composition res(suit);
+
+  for (const auto& [axle, card] : vec_of_axle_card_pairs) {
+    auto val = f_eval(card);
     // store major() in Component
-    res.emplace_back(pair.first, val.major());
+    res.insert(axle, val.major());
   }
   return res;
 }
@@ -403,13 +420,13 @@ std::vector<Pattern::Component> gen_comps(
 SCENARIO("Rules::parse when Lordful", "[rules]") {
   const Suit suit_lord = Suit::S;
   const Card lord(suit_lord, Rank::_8);
-  Rules rules(lord);
+  TestRules rules(lord);
 
   SECTION("Test multiple suits") {
     const std::vector<Card> cards = {
         {Suit::D, Rank::_4}, {Suit::D, Rank::_4}, {Suit::S, Rank::_5}};
-    auto pat = rules.parse(cards);
-    REQUIRE_FALSE(pat.single_suit());
+    auto enh_cmp = rules.parse(cards);
+    REQUIRE_FALSE(enh_cmp);
   }
 
   const auto rules_impl = RulesLordful(lord);
@@ -423,18 +440,19 @@ SCENARIO("Rules::parse when Lordful", "[rules]") {
                                      Rank::_6, Rank::_6, Rank::_7, Rank::_7,
                                      Rank::_9, Rank::_9, Rank::_A};
     const std::vector<Card> cards = gen_for_suit(suit, ranks);
-    auto pat = rules.parse(cards);
+    auto enh_cmp = rules.parse(cards);
 
-    REQUIRE(pat.single_suit());
-    REQUIRE(pat.minor_lord_comps().empty());
-    REQUIRE(pat.suit() == suit);
-    REQUIRE(pat.count() == ranks.size());
-    const auto comps_exp = gen_comps(f_eval, {{0, {suit, Rank::_3}},
-                                              {1, {suit, Rank::_4}},
-                                              {0, {suit, Rank::_5}},
-                                              {3, {suit, Rank::_6}},
-                                              {0, {suit, Rank::_A}}});
-    REQUIRE(pat.comps() == comps_exp);
+    REQUIRE(enh_cmp);
+    CHECK(enh_cmp->empty_minor_lord_pairs());
+    CHECK(enh_cmp->cmp.suit() == suit);
+    CHECK(enh_cmp->cmp.total_num_cards() == ranks.size());
+    const auto cmp_exp = gen_cmp(suit, f_eval,
+                                 {{0, {suit, Rank::_3}},
+                                  {1, {suit, Rank::_4}},
+                                  {0, {suit, Rank::_5}},
+                                  {3, {suit, Rank::_6}},
+                                  {0, {suit, Rank::_A}}});
+    CHECK(enh_cmp->cmp == cmp_exp);
   }
 
   SECTION("Test minor lord complication") {
@@ -443,18 +461,20 @@ SCENARIO("Rules::parse when Lordful", "[rules]") {
         {suit, Rank::_A},    {suit, Rank::_A},    {Suit::C, Rank::_8},
         {Suit::D, Rank::_8}, {Suit::D, Rank::_8}, {Suit::H, Rank::_8},
         {Suit::H, Rank::_8}, {suit, Rank::_8},    {suit, Rank::_8}};
-    auto pat = rules.parse(cards);
+    auto enh_cmp = rules.parse(cards);
 
-    REQUIRE(pat.single_suit());
+    REQUIRE(enh_cmp);
     THEN("pattern uses Suit::J to denote lord cards") {
-      REQUIRE(pat.suit() == Suit::J);
+      CHECK(enh_cmp->cmp.suit() == Suit::J);
     }
-    REQUIRE(pat.count() == cards.size());
-    const auto comps_exp =
-        gen_comps(f_eval, {{3, {suit, Rank::_A}}, {0, {Suit::C, Rank::_8}}});
-    REQUIRE(pat.comps() == comps_exp);
-    const auto minor_lord_comps_exp =
-        gen_comps(f_eval, {{1, {Suit::D, Rank::_8}}});
-    REQUIRE(pat.minor_lord_comps() == minor_lord_comps_exp);
+    CHECK_FALSE(enh_cmp->empty_minor_lord_pairs());
+    CHECK(enh_cmp->cmp.total_num_cards() +
+              2 * enh_cmp->extra_ml_pair_start.size() ==
+          cards.size());
+    const auto cmp_exp = gen_cmp(
+        Suit::J, f_eval, {{3, {suit, Rank::_A}}, {0, {Suit::C, Rank::_8}}});
+    CHECK(enh_cmp->cmp == cmp_exp);
+    CHECK(enh_cmp->extra_ml_pair_start ==
+          std::vector<int8_t>{f_eval({Suit::D, Rank::_8}).major()});
   }
 }
