@@ -478,3 +478,87 @@ SCENARIO("Rules::parse when Lordful", "[rules]") {
           std::vector<int8_t>{f_eval({Suit::D, Rank::_8}).major()});
   }
 }
+
+SCENARIO("EnhancedComposition::direct_append_extra and split_merge_extra",
+         "[rules]") {}
+
+SCENARIO("Rules::start_round_with", "[rules]") {}
+
+SCENARIO("RoundRules::get_required_format", "[rules]") {}
+
+SCENARIO("RoundRules::update_if_defeated_by", "[rules]") {}
+
+SCENARIO("Composition::defeats", "[rules]") {}
+
+SCENARIO("Format::is_covered_by", "[rules]") {
+  SECTION("empty format is covered by any formats") {}
+
+  SECTION("folk is covered by lord if affordable") {}
+
+  SECTION("lord is not covered by folk") {}
+
+  SECTION("folk covered by folk, lord covered by lord") {}
+
+  SECTION("can be covered by more cards") {}
+}
+
+Format gen_format(Suit suit, const std::vector<int8_t>& axles) {
+  Format res(suit);
+  for (auto axle : axles) res.insert(axle);
+  return res;
+}
+
+SCENARIO("Format::extract_required_format_from", "[rules]") {
+  SECTION("when other can afford the format") {
+    const auto format = gen_format(Suit::C, {2, 1, 1, 0, 0});
+    CHECK(format ==
+          format.extract_required_format_from(gen_format(Suit::C, {5})));
+    CHECK(format ==
+          format.extract_required_format_from(gen_format(Suit::C, {3, 2})));
+    CHECK(format ==
+          format.extract_required_format_from(gen_format(Suit::C, {3, 1, 1})));
+    CHECK(format == format.extract_required_format_from(
+                        gen_format(Suit::C, {3, 1, 0, 0})));
+    CHECK(format == format.extract_required_format_from(
+                        gen_format(Suit::C, {2, 1, 1, 1})));
+    CHECK(format == format.extract_required_format_from(
+                        gen_format(Suit::C, {2, 1, 1, 0, 0})));
+    CHECK_FALSE(format == format.extract_required_format_from(
+                              gen_format(Suit::C, {1, 1, 1, 1, 0, 0})));
+  }
+
+  SECTION("2-axle demands pairs") {
+    const auto format = gen_format(Suit::C, {2, 1, 1, 0, 0});
+    const auto other = gen_format(Suit::C, {1, 1, 1, 1, 1, 0, 0});
+    const auto req_fmt = gen_format(Suit::C, {1, 1, 1, 1, 0, 0});
+    CHECK(req_fmt == format.extract_required_format_from(other));
+  }
+
+  SECTION("when other has fewer cards") {
+    const auto format = gen_format(Suit::C, {2, 1, 1, 0, 0});
+    {
+      std::vector<int8_t> axles = {1, 1, 1, 0, 0, 0};
+      const auto other = gen_format(Suit::C, axles);
+      const auto req_fmt = other;
+      CAPTURE(axles);
+      CHECK(req_fmt == format.extract_required_format_from(other));
+    }
+
+    WHEN(
+        "other has higher axles but fewer cards, the resulting format should "
+        "follow that of the format") {
+      std::vector<int8_t> axles = {3, 1, 0};
+      const auto other = gen_format(Suit::C, axles);
+      const auto req_fmt = gen_format(Suit::C, {2, 1, 1, 0});
+      ;
+      CAPTURE(axles);
+      CHECK(req_fmt == format.extract_required_format_from(other));
+    }
+  }
+
+  SECTION("when other has a different suit") {
+    const auto format = gen_format(Suit::C, {2, 1, 1, 0, 0});
+    const auto other = gen_format(Suit::D, {2, 1, 1, 0, 0});
+    CHECK(Format() == format.extract_required_format_from(other));
+  }
+}

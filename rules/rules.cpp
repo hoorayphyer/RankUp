@@ -92,8 +92,7 @@ bool Format::is_covered_by(const Format& other) const {
 
 Format Format::extract_required_format_from(const Format& other) const {
   if (!suit() or !other.suit()) return {};
-
-  assert(*suit() == *other.suit());
+  if (*other.suit() != *suit()) return {};
 
   assert(total_num_cards() > 0);
   assert(other.total_num_cards() > 0);
@@ -114,33 +113,55 @@ Format Format::extract_required_format_from(const Format& other) const {
 
   Format res(*suit());
 
-  bool is_pop_a = true;
-  bool is_pop_b = true;
-
   while (!pq_a.empty() and !pq_b.empty()) {
     auto ax_a = pq_a.top();
-    if (is_pop_a) pq_a.pop();
+    pq_a.pop();
     auto ax_b = pq_b.top();
-    if (is_pop_b) pq_b.pop();
+    pq_b.pop();
 
     if (ax_a < ax_b) {
       res.insert(ax_a);
       pq_b.push(ax_b - ax_a);
-      is_pop_a = true;
-      is_pop_b = false;
     } else if (ax_a > ax_b) {
       res.insert(ax_b);
       pq_a.push(ax_a - ax_b);
-      is_pop_a = false;
-      is_pop_b = true;
     } else {
       res.insert(ax_a);
-      is_pop_a = true;
-      is_pop_b = true;
     }
   }
 
   return res;
+}
+
+bool Format::operator==(const Format& other) const {
+  if (suit() != other.suit()) return false;
+  if (m_axle.size() != other.m_axle.size()) return false;
+
+  for (auto i = 0u; i < m_axle.size(); ++i) {
+    auto axle = m_axle[i];
+    auto ind_o = other.get_index(axle);
+    if (ind_o == INVALID_INDEX) return false;
+
+    if (m_count[i] != other.m_count[ind_o]) return false;
+  }
+
+  return true;
+}
+
+Format::operator std::string() const {
+  std::ostringstream ss;
+  if (!suit()) {
+    ss << "Empty-Format";
+  } else {
+    ss << "Suit " << static_cast<int>(*suit()) << ", {";
+    for (auto i = 0u; i < m_axle.size(); ++i) {
+      ss << " axle " << static_cast<int>(m_axle[i]) << ": "
+         << static_cast<int>(m_count[i]) << ",";
+    }
+    ss << " }";
+  }
+
+  return ss.str();
 }
 }  // namespace rankup
 

@@ -57,6 +57,10 @@ class Format {
 
   Format extract_required_format_from(const Format& other) const;
 
+  bool operator==( const Format& other ) const;
+
+  explicit operator std::string() const;
+
  protected:
   std::optional<Suit> m_suit = {};
 
@@ -84,6 +88,12 @@ class Format {
   // If so, one should make suit() return an optional.
   int get_index_highest_axle() const;
 };
+
+template <typename OStream>
+OStream& operator<<(OStream& o, const Format& format) {
+  o << static_cast<std::string>(format);
+  return o;
+}
 
 /**
    The composition of a set of cards with the same suit
