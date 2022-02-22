@@ -74,19 +74,40 @@ bool Format::is_covered_by(const Format& other) const {
   else if (!other.suit())
     return false;
 
+  if (other.total_num_cards() < total_num_cards()) return false;
+
   if (*other.suit() != *m_suit and *other.suit() != Suit::J) return false;
 
-  auto ind_ax_max = std::distance(
-      m_axle.begin(), std::max_element(m_axle.begin(), m_axle.end()));
+  // at this point either both have the same suit or other has Suit::J, so it's
+  // time to compare axles
 
-  // TODO not finished yet.
+  auto make_pq = [](const Format& f) {
+    std::priority_queue<int8_t> res;
+    for (int i = 0; i < f.m_axle.size(); ++i) {
+      // push m_ax by m_count times
+      for (int c = 0; c < f.m_count[i]; ++c) {
+        res.push(f.m_axle[i]);
+      }
+    }
+    return res;
+  };
 
-  if (m_axle.size() != other.m_axle.size()) return false;
+  auto pq_a = make_pq(*this);
+  auto pq_b = make_pq(other);
 
-  // I use a N^2 algorithm here as the vector sizes are small
-  for (auto i = 0u; i < m_axle.size(); ++i) {
-    if (other.get_count_at_or_0(m_axle[i]) != m_count[i]) return false;
+  while (!pq_a.empty() and !pq_b.empty()) {
+    auto ax_a = pq_a.top();
+    pq_a.pop();
+    auto ax_b = pq_b.top();
+    pq_b.pop();
+
+    if (ax_a < ax_b) {
+      pq_b.push(ax_b - ax_a);
+    } else if (ax_a > ax_b) {
+      return false;
+    }
   }
+
   return true;
 }
 

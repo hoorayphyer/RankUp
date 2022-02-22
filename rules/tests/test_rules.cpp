@@ -490,22 +490,43 @@ SCENARIO("RoundRules::update_if_defeated_by", "[rules]") {}
 
 SCENARIO("Composition::defeats", "[rules]") {}
 
-SCENARIO("Format::is_covered_by", "[rules]") {
-  SECTION("empty format is covered by any formats") {}
-
-  SECTION("folk is covered by lord if affordable") {}
-
-  SECTION("lord is not covered by folk") {}
-
-  SECTION("folk covered by folk, lord covered by lord") {}
-
-  SECTION("can be covered by more cards") {}
-}
-
 Format gen_format(Suit suit, const std::vector<int8_t>& axles) {
   Format res(suit);
   for (auto axle : axles) res.insert(axle);
   return res;
+}
+
+SCENARIO("Format::is_covered_by", "[rules]") {
+  SECTION("empty format is covered by any formats") {
+    const Format format;
+    CHECK(format.is_covered_by(Format()));
+    CHECK(format.is_covered_by(gen_format(Suit::C, {5})));
+    CHECK(format.is_covered_by(gen_format(Suit::C, {3, 2})));
+    CHECK(format.is_covered_by(gen_format(Suit::C, {0, 1, 1})));
+  }
+
+  SECTION("folk is covered by lord if affordable") {
+    const auto format = gen_format(Suit::C, {0, 0, 1, 2});
+    CHECK(format.is_covered_by(gen_format(Suit::J, {0, 0, 1, 2})));
+    CHECK_FALSE(format.is_covered_by(gen_format(Suit::D, {0, 0, 1, 2})));
+    CHECK(format.is_covered_by(gen_format(Suit::J, {1, 1, 2})));
+    CHECK_FALSE(format.is_covered_by(gen_format(Suit::J, {0, 0, 1, 1, 1})));
+  }
+
+  SECTION("lord is not covered by folk") {
+    const auto format = gen_format(Suit::J, {0, 0, 1, 2});
+    CHECK_FALSE(format.is_covered_by(gen_format(Suit::C, {0, 0, 1, 2})));
+  }
+
+  SECTION("folk covered by folk, lord covered by lord") {
+    for (auto suit : std::array{Suit::C, Suit::J}) {
+      const auto format = gen_format(suit, {0, 0, 1, 2});
+      CHECK(format.is_covered_by(gen_format(suit, {0, 0, 1, 2})));
+      CHECK(format.is_covered_by(gen_format(suit, {1, 1, 1, 2})));
+      CHECK(format.is_covered_by(gen_format(suit, {2, 2})));
+      CHECK_FALSE(format.is_covered_by(gen_format(suit, {0, 0, 1, 1})));
+    }
+  }
 }
 
 SCENARIO("Format::extract_required_format_from", "[rules]") {
