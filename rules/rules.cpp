@@ -247,8 +247,7 @@ bool Composition::defeats(const Composition& other) const {
     // other isn't composed of lords, so always loses
     return true;
   } else if (other.suit() == Suit::J) {
-    // check if other has the same format
-    return is_covered_by(other);
+    return not is_covered_by(other);
   } else {
     // other has folks of a different suit than this, so always loses
     return true;

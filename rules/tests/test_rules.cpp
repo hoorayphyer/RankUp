@@ -1,5 +1,6 @@
 #include <catch2/catch.hpp>
 #include <cstdint>
+#include <variant>
 
 #include "common/card.hpp"
 #include "rules.hpp"
@@ -385,9 +386,17 @@ class TestRules {
  public:
   TestRules(Card lord_card) : m_rules(std::move(lord_card)) {}
 
+  // functions to be tested
   auto parse(const std::vector<Card>& cards) const {
     return m_rules.parse_for_single_suit(cards);
   }
+
+  // helper functions
+  auto evaluate(const Card& card) const {
+    return m_rules.m_impl->evaluate(card);
+  }
+
+  const auto& lord_card() const { return m_rules.m_lord_card; }
 
  private:
   Rules m_rules;
@@ -402,25 +411,63 @@ std::vector<Card> gen_for_suit(Suit suit, const std::vector<Rank>& ranks) {
   return res;
 }
 
-template <typename F>
-Composition gen_cmp(
-    Suit suit, const F& f_eval,
-    const std::vector<std::pair<int8_t, Card>>& vec_of_axle_card_pairs) {
-  Composition res(suit);
+namespace {
+// copied from A Tour of C++, page 176
+template <class... Ts>
+struct overloaded : Ts... {
+  using Ts::operator()...;
+};
 
-  for (const auto& [axle, card] : vec_of_axle_card_pairs) {
-    auto val = f_eval(card);
-    // store major() in Component
-    res.insert(axle, val.major());
+// add a deduction guide
+template <class... Ts>
+overloaded(Ts...) -> overloaded<Ts...>;
+}  // namespace
+
+namespace {
+struct VariCard {
+ public:
+  VariCard(Rank rank) : m_data(rank) {}
+  VariCard(Card card) : m_data(std::move(card)) {}
+  VariCard(Suit suit, Rank rank) : m_data(Card(suit, rank)) {}
+  const auto& data() const { return m_data; }
+
+ private:
+  std::variant<Rank, Card> m_data;
+};
+
+class CompositionGenerator {
+ public:
+  CompositionGenerator(const TestRules& testrules) : m_rules(testrules) {}
+
+  Composition operator()(
+      Suit suit,
+      const std::vector<std::pair<int8_t, VariCard>>& vec_of_axle_card_pairs) {
+    Composition res(suit == m_rules.lord_card().suit() ? Suit::J : suit);
+
+    for (const auto& [axle, vari_card] : vec_of_axle_card_pairs) {
+      auto val = std::visit(
+          overloaded{[&](Rank rank) {
+                       return m_rules.evaluate({suit, rank});
+                     },
+                     [&](const Card& card) { return m_rules.evaluate(card); }},
+          vari_card.data());
+      // store major() in Component
+      res.insert(axle, val.major());
+    }
+    return res;
   }
-  return res;
-}
+
+ private:
+  const TestRules& m_rules;
+};
+}  // namespace
 
 // Lordful should be enough to cover all cases
 SCENARIO("Rules::parse when Lordful", "[rules]") {
   const Suit suit_lord = Suit::S;
   const Card lord(suit_lord, Rank::_8);
   TestRules rules(lord);
+  CompositionGenerator gen_cmp(rules);
 
   SECTION("Test multiple suits") {
     const std::vector<Card> cards = {
@@ -428,11 +475,6 @@ SCENARIO("Rules::parse when Lordful", "[rules]") {
     auto enh_cmp = rules.parse(cards);
     REQUIRE_FALSE(enh_cmp);
   }
-
-  const auto rules_impl = RulesLordful(lord);
-  auto f_eval = [&rules_impl](const Card& card) {
-    return rules_impl.evaluate(card);
-  };
 
   SECTION("Test folk suits") {
     const Suit suit = Suit::D;
@@ -446,12 +488,11 @@ SCENARIO("Rules::parse when Lordful", "[rules]") {
     CHECK(enh_cmp->empty_minor_lord_pairs());
     CHECK(enh_cmp->cmp.suit() == suit);
     CHECK(enh_cmp->cmp.total_num_cards() == ranks.size());
-    const auto cmp_exp = gen_cmp(suit, f_eval,
-                                 {{0, {suit, Rank::_3}},
-                                  {1, {suit, Rank::_4}},
-                                  {0, {suit, Rank::_5}},
-                                  {3, {suit, Rank::_6}},
-                                  {0, {suit, Rank::_A}}});
+    const auto cmp_exp = gen_cmp(suit, {{0, Rank::_3},
+                                        {1, Rank::_4},
+                                        {0, Rank::_5},
+                                        {3, Rank::_6},
+                                        {0, Rank::_A}});
     CHECK(enh_cmp->cmp == cmp_exp);
   }
 
@@ -471,11 +512,11 @@ SCENARIO("Rules::parse when Lordful", "[rules]") {
     CHECK(enh_cmp->cmp.total_num_cards() +
               2 * enh_cmp->extra_ml_pair_start.size() ==
           cards.size());
-    const auto cmp_exp = gen_cmp(
-        Suit::J, f_eval, {{3, {suit, Rank::_A}}, {0, {Suit::C, Rank::_8}}});
+    const auto cmp_exp =
+        gen_cmp(suit, {{3, Rank::_A}, {0, {Suit::C, Rank::_8}}});
     CHECK(enh_cmp->cmp == cmp_exp);
     CHECK(enh_cmp->extra_ml_pair_start ==
-          std::vector<int8_t>{f_eval({Suit::D, Rank::_8}).major()});
+          std::vector<int8_t>{rules.evaluate({Suit::D, Rank::_8}).major()});
   }
 }
 
@@ -488,7 +529,92 @@ SCENARIO("RoundRules::get_required_format", "[rules]") {}
 
 SCENARIO("RoundRules::update_if_defeated_by", "[rules]") {}
 
-SCENARIO("Composition::defeats", "[rules]") {}
+SCENARIO("Composition::defeats", "[rules]") {
+  const Suit suit_lord = Suit::S;
+  const Card lord(suit_lord, Rank::_8);
+  TestRules rules(lord);
+  CompositionGenerator gen_cmp(rules);
+
+  SECTION("folk composition") {
+    const Suit suit_folk = Suit::C;
+    SECTION("pure axle") {
+      for (auto axle : std::array{0, 1, 2, 3}) {
+        CAPTURE(axle);
+        const auto cmp = gen_cmp(suit_folk, {{axle, Rank::_3}});
+
+        SECTION("1st occurrence defeats 2nd occurrence") {
+          if (axle == 0) {
+            CHECK(cmp.defeats(cmp));
+          }
+        }
+        CHECK(cmp.defeats(gen_cmp(suit_folk, {{axle, Rank::_2}})));
+        CHECK_FALSE(cmp.defeats(gen_cmp(suit_folk, {{axle, Rank::_5}})));
+        CHECK(cmp.defeats(gen_cmp(Suit::D, {{axle, Rank::_A}})));
+        CHECK_FALSE(cmp.defeats(gen_cmp(suit_lord, {{axle, Rank::_2}})));
+      }
+    }
+
+    SECTION("mixed axles") {
+      const auto cmp =
+          gen_cmp(suit_folk, {{1, Rank::_10}, {0, Rank::_5}, {0, Rank::_6}});
+
+      THEN("it's defeated by an affording lord card set") {
+        CHECK_FALSE(cmp.defeats(gen_cmp(
+            suit_lord, {{1, Rank::_10}, {0, Rank::_5}, {0, Rank::_6}})));
+      }
+
+      // the following tests may not show up in real world.
+      THEN("only the pair needs to be higher") {
+        CHECK(cmp.defeats(
+            gen_cmp(suit_folk, {{1, Rank::_9}, {0, Rank::_6}, {0, Rank::_7}})));
+        CHECK_FALSE(cmp.defeats(
+            gen_cmp(suit_folk, {{1, Rank::_J}, {0, Rank::_2}, {0, Rank::_3}})));
+      }
+
+      THEN("it defeats higher axle cards if the pair is higher") {
+        CHECK(cmp.defeats(gen_cmp(suit_folk, {{2, Rank::_7}})));
+      }
+    }
+  }
+
+  SECTION("lord composition") {
+    SECTION("pure axle") {
+      for (auto axle : std::array{0, 1, 2, 3}) {
+        CAPTURE(axle);
+        const auto cmp = gen_cmp(suit_lord, {{axle, Rank::_3}});
+        CHECK(cmp.defeats(gen_cmp(suit_lord, {{axle, Rank::_2}})));
+        CHECK_FALSE(cmp.defeats(gen_cmp(suit_lord, {{axle, Rank::_5}})));
+        CHECK(cmp.defeats(gen_cmp(Suit::D, {{axle, Rank::_A}})));
+      }
+    }
+
+    SECTION("mixed axles") {
+      const auto cmp =
+          gen_cmp(suit_lord, {{1, Rank::_10}, {0, Rank::_5}, {0, Rank::_6}});
+
+      THEN("only the pair needs to be higher") {
+        CHECK(cmp.defeats(
+            gen_cmp(suit_lord, {{1, Rank::_9}, {0, Rank::_6}, {0, Rank::_7}})));
+        CHECK_FALSE(cmp.defeats(
+            gen_cmp(suit_lord, {{1, Rank::_J}, {0, Rank::_2}, {0, Rank::_3}})));
+      }
+
+      THEN("it defeats higher axle cards if the pair is higher") {
+        CHECK(cmp.defeats(gen_cmp(suit_lord, {{2, Rank::_7}})));
+      }
+    }
+  }
+
+  WHEN(
+      "2 pairs are interpreted as having axles [0,0,1], the axle 1 should "
+      "correspond to the larger of the two pairs") {
+    const auto cmp =
+        gen_cmp(suit_lord, {{0, Rank::_4}, {0, Rank::_4}, {1, Rank::_6}});
+
+    CHECK(cmp.defeats(
+        gen_cmp(suit_lord, {{0, Rank::_2}, {0, Rank::_3}, {1, Rank::_5}})));
+  }
+}
 
 Format gen_format(Suit suit, const std::vector<int8_t>& axles) {
   Format res(suit);
