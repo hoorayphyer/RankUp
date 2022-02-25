@@ -57,7 +57,7 @@ class Format {
 
   Format extract_required_format_from(const Format& other) const;
 
-  bool operator==( const Format& other ) const;
+  bool operator==(const Format& other) const;
 
   explicit operator std::string() const;
 
@@ -103,6 +103,9 @@ class Composition : private Format {
   explicit Composition(Suit suit) : Format(suit) {}
 
   /**
+     `insert` doesn't perform any merge. For example, `insert(1, 3)` followed by
+     `insert(1,4)` is NOT equivalent to `insert(2,3)`.
+
      @return the index corresponding to axle
    */
   int8_t insert(int8_t axle, int8_t start);

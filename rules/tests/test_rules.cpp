@@ -398,6 +398,11 @@ class TestRules {
 
   const auto& lord_card() const { return m_rules.m_lord_card; }
 
+  static auto make_enhanced_composition(Composition c,
+                                        std::vector<int8_t> extra) {
+    return Rules::EnhancedComposition(std::move(c), std::move(extra));
+  }
+
  private:
   Rules m_rules;
 };
@@ -521,7 +526,49 @@ SCENARIO("Rules::parse when Lordful", "[rules]") {
 }
 
 SCENARIO("EnhancedComposition::direct_append_extra and split_merge_extra",
-         "[rules]") {}
+         "[rules]") {
+  constexpr int8_t A = 11;
+  constexpr int8_t MINOR_L = 12;
+  constexpr int8_t MAJOR_L = 13;
+
+  const Composition cmp = [] {
+    Composition res(Suit::J);
+    res.insert(3, A);
+    res.insert(0, MINOR_L);
+    return res;
+  }();
+
+  for (auto num_extra_minor_lord_pair : std::array{0, 1, 2}) {
+    CAPTURE(num_extra_minor_lord_pair);
+    std::vector<int8_t> extra_ml_pairs(num_extra_minor_lord_pair, MINOR_L);
+    auto enh_cmp = TestRules::make_enhanced_composition(cmp, extra_ml_pairs);
+    REQUIRE(enh_cmp.empty_minor_lord_pairs() == extra_ml_pairs.empty());
+
+    WHEN("direct append extra") {
+      auto cmp_exp = cmp;
+      for (auto i = 0; i < num_extra_minor_lord_pair; ++i) {
+        cmp_exp.insert(1, MINOR_L);
+      }
+      CHECK(cmp_exp == enh_cmp.direct_append_extra());
+    }
+
+    WHEN("split merge extra") {
+      const Composition cmp_exp = [&] {
+        if (num_extra_minor_lord_pair == 0) return cmp;
+
+        Composition res(Suit::J);
+        res.insert(2, A);
+        res.insert(2, MINOR_L);
+        for (auto i = 0; i < num_extra_minor_lord_pair - 1; ++i) {
+          res.insert(1, MINOR_L);
+        }
+        res.insert(0, MINOR_L);
+        return res;
+      }();
+      CHECK(cmp_exp == enh_cmp.split_merge_extra());
+    }
+  }
+}
 
 SCENARIO("Rules::start_round_with", "[rules]") {}
 
