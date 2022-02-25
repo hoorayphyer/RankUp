@@ -8,6 +8,7 @@
 
 using namespace rankup;
 
+namespace test_rules_impl {
 SCENARIO("test Value class", "[rules]") {
   const int8_t val_raw = 8;
 
@@ -380,6 +381,7 @@ SCENARIO("Regular Lordless Rules", "[rules]") {
     REQUIRE(extra == std::vector<Value>{});
   }
 }
+}  // namespace test_rules_impl
 
 namespace rankup {
 class TestRules {
@@ -467,202 +469,7 @@ class CompositionGenerator {
 };
 }  // namespace
 
-// Lordful should be enough to cover all cases
-SCENARIO("Rules::parse when Lordful", "[rules]") {
-  const Suit suit_lord = Suit::S;
-  const Card lord(suit_lord, Rank::_8);
-  TestRules rules(lord);
-  CompositionGenerator gen_cmp(rules);
-
-  SECTION("Test multiple suits") {
-    const std::vector<Card> cards = {
-        {Suit::D, Rank::_4}, {Suit::D, Rank::_4}, {Suit::S, Rank::_5}};
-    auto enh_cmp = rules.parse(cards);
-    REQUIRE_FALSE(enh_cmp);
-  }
-
-  SECTION("Test folk suits") {
-    const Suit suit = Suit::D;
-    const std::vector<Rank> ranks = {Rank::_3, Rank::_4, Rank::_4, Rank::_5,
-                                     Rank::_6, Rank::_6, Rank::_7, Rank::_7,
-                                     Rank::_9, Rank::_9, Rank::_A};
-    const std::vector<Card> cards = gen_for_suit(suit, ranks);
-    auto enh_cmp = rules.parse(cards);
-
-    REQUIRE(enh_cmp);
-    CHECK(enh_cmp->empty_minor_lord_pairs());
-    CHECK(enh_cmp->cmp.suit() == suit);
-    CHECK(enh_cmp->cmp.total_num_cards() == ranks.size());
-    const auto cmp_exp = gen_cmp(suit, {{0, Rank::_3},
-                                        {1, Rank::_4},
-                                        {0, Rank::_5},
-                                        {3, Rank::_6},
-                                        {0, Rank::_A}});
-    CHECK(enh_cmp->cmp == cmp_exp);
-  }
-
-  SECTION("Test minor lord complication") {
-    const Suit suit = suit_lord;
-    const std::vector<Card> cards = {
-        {suit, Rank::_A},    {suit, Rank::_A},    {Suit::C, Rank::_8},
-        {Suit::D, Rank::_8}, {Suit::D, Rank::_8}, {Suit::H, Rank::_8},
-        {Suit::H, Rank::_8}, {suit, Rank::_8},    {suit, Rank::_8}};
-    auto enh_cmp = rules.parse(cards);
-
-    REQUIRE(enh_cmp);
-    THEN("pattern uses Suit::J to denote lord cards") {
-      CHECK(enh_cmp->cmp.suit() == Suit::J);
-    }
-    CHECK_FALSE(enh_cmp->empty_minor_lord_pairs());
-    CHECK(enh_cmp->cmp.total_num_cards() +
-              2 * enh_cmp->extra_ml_pair_start.size() ==
-          cards.size());
-    const auto cmp_exp =
-        gen_cmp(suit, {{3, Rank::_A}, {0, {Suit::C, Rank::_8}}});
-    CHECK(enh_cmp->cmp == cmp_exp);
-    CHECK(enh_cmp->extra_ml_pair_start ==
-          std::vector<int8_t>{rules.evaluate({Suit::D, Rank::_8}).major()});
-  }
-}
-
-SCENARIO("EnhancedComposition::direct_append_extra and split_merge_extra",
-         "[rules]") {
-  constexpr int8_t A = 11;
-  constexpr int8_t MINOR_L = 12;
-  constexpr int8_t MAJOR_L = 13;
-
-  const Composition cmp = [] {
-    Composition res(Suit::J);
-    res.insert(3, A);
-    res.insert(0, MINOR_L);
-    return res;
-  }();
-
-  for (auto num_extra_minor_lord_pair : std::array{0, 1, 2}) {
-    CAPTURE(num_extra_minor_lord_pair);
-    std::vector<int8_t> extra_ml_pairs(num_extra_minor_lord_pair, MINOR_L);
-    auto enh_cmp = TestRules::make_enhanced_composition(cmp, extra_ml_pairs);
-    REQUIRE(enh_cmp.empty_minor_lord_pairs() == extra_ml_pairs.empty());
-
-    WHEN("direct append extra") {
-      auto cmp_exp = cmp;
-      for (auto i = 0; i < num_extra_minor_lord_pair; ++i) {
-        cmp_exp.insert(1, MINOR_L);
-      }
-      CHECK(cmp_exp == enh_cmp.direct_append_extra());
-    }
-
-    WHEN("split merge extra") {
-      const Composition cmp_exp = [&] {
-        if (num_extra_minor_lord_pair == 0) return cmp;
-
-        Composition res(Suit::J);
-        res.insert(2, A);
-        res.insert(2, MINOR_L);
-        for (auto i = 0; i < num_extra_minor_lord_pair - 1; ++i) {
-          res.insert(1, MINOR_L);
-        }
-        res.insert(0, MINOR_L);
-        return res;
-      }();
-      CHECK(cmp_exp == enh_cmp.split_merge_extra());
-    }
-  }
-}
-
-SCENARIO("Rules::start_round_with", "[rules]") {}
-
-SCENARIO("RoundRules::get_required_format", "[rules]") {}
-
-SCENARIO("RoundRules::update_if_defeated_by", "[rules]") {}
-
-SCENARIO("Composition::defeats", "[rules]") {
-  const Suit suit_lord = Suit::S;
-  const Card lord(suit_lord, Rank::_8);
-  TestRules rules(lord);
-  CompositionGenerator gen_cmp(rules);
-
-  SECTION("folk composition") {
-    const Suit suit_folk = Suit::C;
-    SECTION("pure axle") {
-      for (auto axle : std::array{0, 1, 2, 3}) {
-        CAPTURE(axle);
-        const auto cmp = gen_cmp(suit_folk, {{axle, Rank::_3}});
-
-        SECTION("1st occurrence defeats 2nd occurrence") {
-          if (axle == 0) {
-            CHECK(cmp.defeats(cmp));
-          }
-        }
-        CHECK(cmp.defeats(gen_cmp(suit_folk, {{axle, Rank::_2}})));
-        CHECK_FALSE(cmp.defeats(gen_cmp(suit_folk, {{axle, Rank::_5}})));
-        CHECK(cmp.defeats(gen_cmp(Suit::D, {{axle, Rank::_A}})));
-        CHECK_FALSE(cmp.defeats(gen_cmp(suit_lord, {{axle, Rank::_2}})));
-      }
-    }
-
-    SECTION("mixed axles") {
-      const auto cmp =
-          gen_cmp(suit_folk, {{1, Rank::_10}, {0, Rank::_5}, {0, Rank::_6}});
-
-      THEN("it's defeated by an affording lord card set") {
-        CHECK_FALSE(cmp.defeats(gen_cmp(
-            suit_lord, {{1, Rank::_10}, {0, Rank::_5}, {0, Rank::_6}})));
-      }
-
-      // the following tests may not show up in real world.
-      THEN("only the pair needs to be higher") {
-        CHECK(cmp.defeats(
-            gen_cmp(suit_folk, {{1, Rank::_9}, {0, Rank::_6}, {0, Rank::_7}})));
-        CHECK_FALSE(cmp.defeats(
-            gen_cmp(suit_folk, {{1, Rank::_J}, {0, Rank::_2}, {0, Rank::_3}})));
-      }
-
-      THEN("it defeats higher axle cards if the pair is higher") {
-        CHECK(cmp.defeats(gen_cmp(suit_folk, {{2, Rank::_7}})));
-      }
-    }
-  }
-
-  SECTION("lord composition") {
-    SECTION("pure axle") {
-      for (auto axle : std::array{0, 1, 2, 3}) {
-        CAPTURE(axle);
-        const auto cmp = gen_cmp(suit_lord, {{axle, Rank::_3}});
-        CHECK(cmp.defeats(gen_cmp(suit_lord, {{axle, Rank::_2}})));
-        CHECK_FALSE(cmp.defeats(gen_cmp(suit_lord, {{axle, Rank::_5}})));
-        CHECK(cmp.defeats(gen_cmp(Suit::D, {{axle, Rank::_A}})));
-      }
-    }
-
-    SECTION("mixed axles") {
-      const auto cmp =
-          gen_cmp(suit_lord, {{1, Rank::_10}, {0, Rank::_5}, {0, Rank::_6}});
-
-      THEN("only the pair needs to be higher") {
-        CHECK(cmp.defeats(
-            gen_cmp(suit_lord, {{1, Rank::_9}, {0, Rank::_6}, {0, Rank::_7}})));
-        CHECK_FALSE(cmp.defeats(
-            gen_cmp(suit_lord, {{1, Rank::_J}, {0, Rank::_2}, {0, Rank::_3}})));
-      }
-
-      THEN("it defeats higher axle cards if the pair is higher") {
-        CHECK(cmp.defeats(gen_cmp(suit_lord, {{2, Rank::_7}})));
-      }
-    }
-  }
-
-  WHEN(
-      "2 pairs are interpreted as having axles [0,0,1], the axle 1 should "
-      "correspond to the larger of the two pairs") {
-    const auto cmp =
-        gen_cmp(suit_lord, {{0, Rank::_4}, {0, Rank::_4}, {1, Rank::_6}});
-
-    CHECK(cmp.defeats(
-        gen_cmp(suit_lord, {{0, Rank::_2}, {0, Rank::_3}, {1, Rank::_5}})));
-  }
-}
-
+namespace testFormat {
 Format gen_format(Suit suit, const std::vector<int8_t>& axles) {
   Format res(suit);
   for (auto axle : axles) res.insert(axle);
@@ -756,3 +563,212 @@ SCENARIO("Format::extract_required_format_from", "[rules]") {
     CHECK(Format() == format.extract_required_format_from(other));
   }
 }
+}  // namespace testFormat
+
+namespace testComposition {
+SCENARIO("Composition::defeats", "[rules]") {
+  const Suit suit_lord = Suit::S;
+  const Card lord(suit_lord, Rank::_8);
+  TestRules rules(lord);
+  CompositionGenerator gen_cmp(rules);
+
+  SECTION("folk composition") {
+    const Suit suit_folk = Suit::C;
+    SECTION("pure axle") {
+      for (auto axle : std::array{0, 1, 2, 3}) {
+        CAPTURE(axle);
+        const auto cmp = gen_cmp(suit_folk, {{axle, Rank::_3}});
+
+        SECTION("1st occurrence defeats 2nd occurrence") {
+          if (axle == 0) {
+            CHECK(cmp.defeats(cmp));
+          }
+        }
+        CHECK(cmp.defeats(gen_cmp(suit_folk, {{axle, Rank::_2}})));
+        CHECK_FALSE(cmp.defeats(gen_cmp(suit_folk, {{axle, Rank::_5}})));
+        CHECK(cmp.defeats(gen_cmp(Suit::D, {{axle, Rank::_A}})));
+        CHECK_FALSE(cmp.defeats(gen_cmp(suit_lord, {{axle, Rank::_2}})));
+      }
+    }
+
+    SECTION("mixed axles") {
+      const auto cmp =
+          gen_cmp(suit_folk, {{1, Rank::_10}, {0, Rank::_5}, {0, Rank::_6}});
+
+      THEN("it's defeated by an affording lord card set") {
+        CHECK_FALSE(cmp.defeats(gen_cmp(
+            suit_lord, {{1, Rank::_10}, {0, Rank::_5}, {0, Rank::_6}})));
+      }
+
+      // the following tests may not show up in real world.
+      THEN("only the pair needs to be higher") {
+        CHECK(cmp.defeats(
+            gen_cmp(suit_folk, {{1, Rank::_9}, {0, Rank::_6}, {0, Rank::_7}})));
+        CHECK_FALSE(cmp.defeats(
+            gen_cmp(suit_folk, {{1, Rank::_J}, {0, Rank::_2}, {0, Rank::_3}})));
+      }
+
+      THEN("it defeats higher axle cards if the pair is higher") {
+        CHECK(cmp.defeats(gen_cmp(suit_folk, {{2, Rank::_7}})));
+      }
+    }
+  }
+
+  SECTION("lord composition") {
+    SECTION("pure axle") {
+      for (auto axle : std::array{0, 1, 2, 3}) {
+        CAPTURE(axle);
+        const auto cmp = gen_cmp(suit_lord, {{axle, Rank::_3}});
+        CHECK(cmp.defeats(gen_cmp(suit_lord, {{axle, Rank::_2}})));
+        CHECK_FALSE(cmp.defeats(gen_cmp(suit_lord, {{axle, Rank::_5}})));
+        CHECK(cmp.defeats(gen_cmp(Suit::D, {{axle, Rank::_A}})));
+      }
+    }
+
+    SECTION("mixed axles") {
+      const auto cmp =
+          gen_cmp(suit_lord, {{1, Rank::_10}, {0, Rank::_5}, {0, Rank::_6}});
+
+      THEN("only the pair needs to be higher") {
+        CHECK(cmp.defeats(
+            gen_cmp(suit_lord, {{1, Rank::_9}, {0, Rank::_6}, {0, Rank::_7}})));
+        CHECK_FALSE(cmp.defeats(
+            gen_cmp(suit_lord, {{1, Rank::_J}, {0, Rank::_2}, {0, Rank::_3}})));
+      }
+
+      THEN("it defeats higher axle cards if the pair is higher") {
+        CHECK(cmp.defeats(gen_cmp(suit_lord, {{2, Rank::_7}})));
+      }
+    }
+  }
+
+  WHEN(
+      "2 pairs are interpreted as having axles [0,0,1], the axle 1 should "
+      "correspond to the larger of the two pairs") {
+    const auto cmp =
+        gen_cmp(suit_lord, {{0, Rank::_4}, {0, Rank::_4}, {1, Rank::_6}});
+
+    CHECK(cmp.defeats(
+        gen_cmp(suit_lord, {{0, Rank::_2}, {0, Rank::_3}, {1, Rank::_5}})));
+  }
+}
+}  // namespace testComposition
+
+namespace testRoundRules {
+SCENARIO("RoundRules::get_required_format", "[rules]") {
+  // TODO
+}
+
+SCENARIO("RoundRules::update_if_defeated_by", "[rules]") {
+  // TODO
+}
+}  // namespace testRoundRules
+
+namespace testRules {
+SCENARIO("EnhancedComposition::direct_append_extra and split_merge_extra",
+         "[rules]") {
+  constexpr int8_t A = 11;
+  constexpr int8_t MINOR_L = 12;
+  constexpr int8_t MAJOR_L = 13;
+
+  const Composition cmp = [] {
+    Composition res(Suit::J);
+    res.insert(3, A);
+    res.insert(0, MINOR_L);
+    return res;
+  }();
+
+  for (auto num_extra_minor_lord_pair : std::array{0, 1, 2}) {
+    CAPTURE(num_extra_minor_lord_pair);
+    std::vector<int8_t> extra_ml_pairs(num_extra_minor_lord_pair, MINOR_L);
+    auto enh_cmp = TestRules::make_enhanced_composition(cmp, extra_ml_pairs);
+    REQUIRE(enh_cmp.empty_minor_lord_pairs() == extra_ml_pairs.empty());
+
+    WHEN("direct append extra") {
+      auto cmp_exp = cmp;
+      for (auto i = 0; i < num_extra_minor_lord_pair; ++i) {
+        cmp_exp.insert(1, MINOR_L);
+      }
+      CHECK(cmp_exp == enh_cmp.direct_append_extra());
+    }
+
+    WHEN("split merge extra") {
+      const Composition cmp_exp = [&] {
+        if (num_extra_minor_lord_pair == 0) return cmp;
+
+        Composition res(Suit::J);
+        res.insert(2, A);
+        res.insert(2, MINOR_L);
+        for (auto i = 0; i < num_extra_minor_lord_pair - 1; ++i) {
+          res.insert(1, MINOR_L);
+        }
+        res.insert(0, MINOR_L);
+        return res;
+      }();
+      CHECK(cmp_exp == enh_cmp.split_merge_extra());
+    }
+  }
+}
+
+// Lordful should be enough to cover all cases
+SCENARIO("Rules::parse when Lordful", "[rules]") {
+  const Suit suit_lord = Suit::S;
+  const Card lord(suit_lord, Rank::_8);
+  TestRules rules(lord);
+  CompositionGenerator gen_cmp(rules);
+
+  SECTION("Test multiple suits") {
+    const std::vector<Card> cards = {
+        {Suit::D, Rank::_4}, {Suit::D, Rank::_4}, {Suit::S, Rank::_5}};
+    auto enh_cmp = rules.parse(cards);
+    REQUIRE_FALSE(enh_cmp);
+  }
+
+  SECTION("Test folk suits") {
+    const Suit suit = Suit::D;
+    const std::vector<Rank> ranks = {Rank::_3, Rank::_4, Rank::_4, Rank::_5,
+                                     Rank::_6, Rank::_6, Rank::_7, Rank::_7,
+                                     Rank::_9, Rank::_9, Rank::_A};
+    const std::vector<Card> cards = gen_for_suit(suit, ranks);
+    auto enh_cmp = rules.parse(cards);
+
+    REQUIRE(enh_cmp);
+    CHECK(enh_cmp->empty_minor_lord_pairs());
+    CHECK(enh_cmp->cmp.suit() == suit);
+    CHECK(enh_cmp->cmp.total_num_cards() == ranks.size());
+    const auto cmp_exp = gen_cmp(suit, {{0, Rank::_3},
+                                        {1, Rank::_4},
+                                        {0, Rank::_5},
+                                        {3, Rank::_6},
+                                        {0, Rank::_A}});
+    CHECK(enh_cmp->cmp == cmp_exp);
+  }
+
+  SECTION("Test minor lord complication") {
+    const Suit suit = suit_lord;
+    const std::vector<Card> cards = {
+        {suit, Rank::_A},    {suit, Rank::_A},    {Suit::C, Rank::_8},
+        {Suit::D, Rank::_8}, {Suit::D, Rank::_8}, {Suit::H, Rank::_8},
+        {Suit::H, Rank::_8}, {suit, Rank::_8},    {suit, Rank::_8}};
+    auto enh_cmp = rules.parse(cards);
+
+    REQUIRE(enh_cmp);
+    THEN("pattern uses Suit::J to denote lord cards") {
+      CHECK(enh_cmp->cmp.suit() == Suit::J);
+    }
+    CHECK_FALSE(enh_cmp->empty_minor_lord_pairs());
+    CHECK(enh_cmp->cmp.total_num_cards() +
+              2 * enh_cmp->extra_ml_pair_start.size() ==
+          cards.size());
+    const auto cmp_exp =
+        gen_cmp(suit, {{3, Rank::_A}, {0, {Suit::C, Rank::_8}}});
+    CHECK(enh_cmp->cmp == cmp_exp);
+    CHECK(enh_cmp->extra_ml_pair_start ==
+          std::vector<int8_t>{rules.evaluate({Suit::D, Rank::_8}).major()});
+  }
+}
+
+SCENARIO("Rules::start_round_with", "[rules]") {
+  // TODO
+}
+}  // namespace testRules
