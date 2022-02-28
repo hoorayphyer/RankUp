@@ -6,7 +6,7 @@ enable_testing(true)
 
 set(CMAKE_BUILD_TYPE Release)
 
-set(CMAKE_CXX_FLAGS "-std=c++17 -pthread -O3 -g -DNDEBUG -fPIC -march=native")
+set(CMAKE_CXX_FLAGS "-std=c++17 -pthread -O3 -g -DNDEBUG -fPIC")
 #set(CMAKE_CXX_FLAGS "-Wl,--out-implib")
 
 function(test_gen category name)

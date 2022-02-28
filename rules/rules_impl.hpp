@@ -6,6 +6,7 @@
 namespace rankup {
 class Value {
  public:
+  // not made explicit to facilitate test writing.
   Value(int8_t value, bool is_minor_lord = false,
         Suit minor_lord_suit = Suit::D) {
     m_data = (value << 3);

@@ -1,5 +1,6 @@
 #include "rules_impl.hpp"
 
+#include <array>
 #include <algorithm>
 
 namespace rankup {

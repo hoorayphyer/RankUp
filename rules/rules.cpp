@@ -287,7 +287,10 @@ Composition::operator std::string() const {
   ss << "Suit " << static_cast<int>(suit()) << ", ";
   for (auto i = 0u; i < m_axle.size(); ++i) {
     ss << "{ axle " << static_cast<int>(m_axle[i]) << ", [";
-    for (int start : m_start[i].data()) ss << start << ",";
+    // NOTE the extra "" ahead of start is to make clang compile. It seems to
+    // have to do with `operator<<(OStream&, const Value&)` in rules_impl.hpp
+    // and the fact that `Value()` is not explicit.
+    for (int start : m_start[i].data()) ss << "" << start << ",";
     ss << "] },";
   }
 
