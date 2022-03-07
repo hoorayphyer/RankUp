@@ -114,7 +114,7 @@ class Composition : private Format {
 
   Suit suit() const { return *format().suit(); }
 
-  auto total_num_cards() const { return format().total_num_cards(); }
+  int8_t total_num_cards() const { return format().total_num_cards(); }
 
   /**
      @return whether this composition defeats `other`, with the format set by
@@ -141,7 +141,7 @@ class Composition : private Format {
    public:
     void insert(int8_t start);
     const int8_t& greatest() const;
-    const auto& data() const { return m_data; }
+    const std::vector<int8_t>& data() const { return m_data; }
 
     bool operator!=(const Starts& other) const;
     bool operator==(const Starts& other) const { return !(*this != other); }
